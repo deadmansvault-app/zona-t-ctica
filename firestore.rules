@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default-deny catch-all (mandatory)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'meiraxx@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Connection health test
+    match /test/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // School Tasks Collection
+    match /tasks/{taskId} {
+      allow read, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Task Check-Ins Collection
+    match /checkins/{checkinId} {
+      allow read, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Real-time Check-In Alerts for Family
+    match /alerts/{alertId} {
+      allow read, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Schedule Collection
+    match /schedule/{scheduleId} {
+      allow read, list: if true;
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Settings Collection
+    match /settings/{settingId} {
+      allow read, list: if true;
+      allow create, update, delete: if isSignedIn();
+    }
+  }
+}

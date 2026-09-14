@@ -1,0 +1,134 @@
+import { initializeApp } from 'firebase/app';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut as firebaseSignOut,
+  User,
+  onAuthStateChanged,
+} from 'firebase/auth';
+import {
+  getFirestore,
+  doc,
+  getDocFromServer,
+  collection,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  getDocs,
+} from 'firebase/firestore';
+import firebaseConfig from '../../firebase-applet-config.json';
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
+// CRITICAL: The app will break without firebaseConfig.firestoreDatabaseId
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const auth = getAuth(app);
+
+// Authentication helpers
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+export async function signInWithGoogle(): Promise<User | null> {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return result.user;
+  } catch (error: any) {
+    const errorCode = error?.code || '';
+    const errorMessage = error?.message || String(error);
+
+    // User cancelled, closed the popup, or denied consent — this is expected user behavior
+    if (
+      errorCode === 'auth/user-cancelled' ||
+      errorCode === 'auth/popup-closed-by-user' ||
+      errorCode === 'auth/cancelled-popup-request' ||
+      errorMessage.includes('auth/user-cancelled') ||
+      errorMessage.includes('auth/popup-closed-by-user') ||
+      errorMessage.includes('user-cancelled')
+    ) {
+      console.info('Início de sessão com Google cancelado pelo utilizador.');
+      return null;
+    }
+
+    console.warn('Aviso no início de sessão com Google:', errorMessage);
+    return null;
+  }
+}
+
+export async function logOut(): Promise<void> {
+  try {
+    await firebaseSignOut(auth);
+  } catch (error: any) {
+    console.warn('Aviso ao terminar sessão:', error?.message || error);
+  }
+}
+
+// Structured error handling as mandated by Firebase Skill
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null
+): never {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo:
+        auth.currentUser?.providerData?.map((provider) => ({
+          providerId: provider.providerId,
+          email: provider.email,
+        })) || [],
+    },
+    operationType,
+    path,
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+// CRITICAL CONSTRAINT: When the application initially boots, call getFromServer to test connection
+export async function testConnection(): Promise<boolean> {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.error('Please check your Firebase configuration.');
+    }
+    return false;
+  }
+}
+
+// Call test connection on boot
+testConnection().catch(() => {});

@@ -1,0 +1,6 @@
+{
+  "name": "Foco 9º B - Agenda Escolar",
+  "description": "Organizador escolar visual com horário, TPCs, testes, plano de estudo sem andebol e check-in com foto.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
