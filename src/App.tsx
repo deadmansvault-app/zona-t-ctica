@@ -7,6 +7,7 @@ import { AllTasksView } from './components/AllTasksView';
 import { ParentHistoryView } from './components/ParentHistoryView';
 import { CheckInModal } from './components/CheckInModal';
 import { AddTaskModal } from './components/AddTaskModal';
+import { EditTaskModal } from './components/EditTaskModal';
 import { TeamsSyncModal } from './components/TeamsSyncModal';
 import { CheckInAlertBanner } from './components/CheckInAlertBanner';
 import { PhotoViewerModal } from './components/PhotoViewerModal';
@@ -58,6 +59,7 @@ export default function App() {
 
   // Modals state
   const [checkInTask, setCheckInTask] = useState<SchoolTask | null>(null);
+  const [editingTask, setEditingTask] = useState<SchoolTask | null>(null);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [addTaskInitialDate, setAddTaskInitialDate] = useState<string | undefined>(undefined);
   const [isTeamsSyncOpen, setIsTeamsSyncOpen] = useState(false);
@@ -163,6 +165,13 @@ export default function App() {
     const updated = [newTask, ...tasks];
     setTasks(updated);
     await saveTask(newTask);
+  };
+
+  const handleEditTask = async (updatedTask: SchoolTask) => {
+    const updated = tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t));
+    setTasks(updated);
+    await saveTask(updatedTask);
+    setEditingTask(null);
   };
 
   const handleDeleteTask = async (taskId: string) => {
@@ -317,6 +326,7 @@ export default function App() {
             onToggleBackpackItem={handleToggleBackpackItem}
             onOpenCheckIn={(task) => setCheckInTask(task)}
             onDeleteTask={handleDeleteTask}
+            onEditTask={(task) => setEditingTask(task)}
             onToggleSession={handleToggleSession}
             onOpenScheduleTab={() => setActiveTab('horario')}
             onOpenAddTask={() => {
@@ -334,6 +344,7 @@ export default function App() {
             settings={settings}
             onOpenCheckIn={(task) => setCheckInTask(task)}
             onDeleteTask={handleDeleteTask}
+            onEditTask={(task) => setEditingTask(task)}
             onToggleSession={handleToggleSession}
             onOpenAddTaskWithDate={handleOpenAddTaskWithDate}
           />
@@ -352,6 +363,7 @@ export default function App() {
             settings={settings}
             onOpenCheckIn={(task) => setCheckInTask(task)}
             onDeleteTask={handleDeleteTask}
+            onEditTask={(task) => setEditingTask(task)}
             onToggleSession={handleToggleSession}
             onOpenAddTask={() => {
               setAddTaskInitialDate(undefined);
@@ -397,6 +409,15 @@ export default function App() {
           isOpen={Boolean(checkInTask)}
           onClose={() => setCheckInTask(null)}
           onConfirm={handleConfirmCheckIn}
+        />
+      )}
+
+      {editingTask && (
+        <EditTaskModal
+          task={editingTask}
+          isOpen={Boolean(editingTask)}
+          onClose={() => setEditingTask(null)}
+          onSaveTask={handleEditTask}
         />
       )}
 

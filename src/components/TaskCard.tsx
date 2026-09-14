@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle2, Clock, Camera, AlertTriangle, Calendar, BookOpen, Trash2, Eye, ExternalLink } from 'lucide-react';
+import { CheckCircle2, Clock, Camera, AlertTriangle, Calendar, BookOpen, Trash2, Eye, ExternalLink, Pencil } from 'lucide-react';
 import { SchoolTask, AppSettings } from '../types';
 import { SUBJECTS } from '../data/timetableData';
 import { getUrgencyStatus } from '../lib/studyPlanner';
@@ -9,6 +9,7 @@ interface TaskCardProps {
   settings: AppSettings;
   onOpenCheckIn: (task: SchoolTask) => void;
   onDeleteTask: (taskId: string) => void;
+  onEditTask?: (task: SchoolTask) => void;
   onToggleSession?: (taskId: string, sessionId: string) => void;
 }
 
@@ -17,6 +18,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   settings,
   onOpenCheckIn,
   onDeleteTask,
+  onEditTask,
   onToggleSession,
 }) => {
   const [showPhotoModal, setShowPhotoModal] = useState(false);
@@ -84,9 +86,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 <span>{urgency.label}</span>
               </span>
 
+              {onEditTask && (
+                <button
+                  onClick={() => onEditTask(task)}
+                  className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-1 rounded-md transition-colors flex items-center gap-1"
+                  title="Editar evento ou alterar data"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline text-[11px] font-bold">Editar</span>
+                </button>
+              )}
+
               <button
                 onClick={() => onDeleteTask(task.id)}
-                className="text-slate-400 hover:text-red-600 p-1 rounded-md transition-colors"
+                className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-1 rounded-md transition-colors"
                 title="Eliminar tarefa"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -112,15 +125,29 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           </div>
 
           {/* Due date and study sessions if applicable */}
-          <div className="flex items-center gap-3 text-xs text-slate-500 mb-4 pl-1">
-            <span className="flex items-center gap-1 font-semibold text-slate-700">
-              <Calendar className="w-3.5 h-3.5 text-red-600" />
-              Para: {formattedDate}
-            </span>
-            {task.type === 'teste' && (
-              <span className="bg-red-50 text-red-700 font-bold px-2 py-0.5 rounded-md text-[11px]">
-                Teste de Avaliação
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 mb-4 pl-1">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1 font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+                <Calendar className="w-3.5 h-3.5 text-red-600" />
+                <span>Para: {formattedDate}</span>
               </span>
+              {task.type === 'teste' && (
+                <span className="bg-red-50 text-red-700 font-bold px-2 py-0.5 rounded-md text-[11px] border border-red-200">
+                  Teste de Avaliação
+                </span>
+              )}
+            </div>
+
+            {onEditTask && (
+              <button
+                type="button"
+                onClick={() => onEditTask(task)}
+                className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded-lg transition-colors flex items-center gap-1 border border-blue-200/60"
+                title="Alterar data marcada ou corrigir dia"
+              >
+                <Pencil className="w-3 h-3 text-blue-600" />
+                <span>Alterar dia</span>
+              </button>
             )}
           </div>
 

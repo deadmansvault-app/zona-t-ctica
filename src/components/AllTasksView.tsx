@@ -9,6 +9,7 @@ interface AllTasksViewProps {
   settings: AppSettings;
   onOpenCheckIn: (task: SchoolTask) => void;
   onDeleteTask: (taskId: string) => void;
+  onEditTask?: (task: SchoolTask) => void;
   onToggleSession: (taskId: string, sessionId: string) => void;
   onOpenAddTask: () => void;
 }
@@ -18,6 +19,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({
   settings,
   onOpenCheckIn,
   onDeleteTask,
+  onEditTask,
   onToggleSession,
   onOpenAddTask,
 }) => {
@@ -161,6 +163,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({
               settings={settings}
               onOpenCheckIn={onOpenCheckIn}
               onDeleteTask={onDeleteTask}
+              onEditTask={onEditTask}
               onToggleSession={onToggleSession}
             />
           ))}

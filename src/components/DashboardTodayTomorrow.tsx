@@ -25,6 +25,7 @@ interface DashboardTodayTomorrowProps {
   onToggleBackpackItem: (item: string) => void;
   onOpenCheckIn: (task: SchoolTask) => void;
   onDeleteTask: (taskId: string) => void;
+  onEditTask?: (task: SchoolTask) => void;
   onToggleSession: (taskId: string, sessionId: string) => void;
   onOpenScheduleTab: () => void;
   onOpenAddTask: () => void;
@@ -38,6 +39,7 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
   onToggleBackpackItem,
   onOpenCheckIn,
   onDeleteTask,
+  onEditTask,
   onToggleSession,
   onOpenScheduleTab,
   onOpenAddTask,
@@ -277,6 +279,7 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
                     settings={settings}
                     onOpenCheckIn={onOpenCheckIn}
                     onDeleteTask={onDeleteTask}
+                    onEditTask={onEditTask}
                     onToggleSession={onToggleSession}
                   />
                 ))}
@@ -446,6 +449,7 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
                     settings={settings}
                     onOpenCheckIn={onOpenCheckIn}
                     onDeleteTask={onDeleteTask}
+                    onEditTask={onEditTask}
                     onToggleSession={onToggleSession}
                   />
                 ))}
@@ -531,6 +535,7 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
               settings={settings}
               onOpenCheckIn={onOpenCheckIn}
               onDeleteTask={onDeleteTask}
+              onEditTask={onEditTask}
               onToggleSession={onToggleSession}
             />
           ))}

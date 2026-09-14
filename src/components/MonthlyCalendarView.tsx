@@ -13,6 +13,8 @@ import {
   Sparkles,
   Info,
   CalendarDays,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { SchoolTask, ScheduleItem, AppSettings, TaskType } from '../types';
 import { SUBJECTS, TIME_SLOTS } from '../data/timetableData';
@@ -23,6 +25,7 @@ interface MonthlyCalendarViewProps {
   settings: AppSettings;
   onOpenCheckIn: (task: SchoolTask) => void;
   onDeleteTask: (taskId: string) => void;
+  onEditTask?: (task: SchoolTask) => void;
   onToggleSession: (taskId: string, sessionId: string) => void;
   onOpenAddTaskWithDate: (dateStr: string) => void;
 }
@@ -33,6 +36,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   settings,
   onOpenCheckIn,
   onDeleteTask,
+  onEditTask,
   onToggleSession,
   onOpenAddTaskWithDate,
 }) => {
@@ -646,8 +650,28 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                             )}
                           </div>
 
-                          {/* Action / CheckIn Button */}
-                          <div className="flex-shrink-0">
+                          {/* Action / Edit / CheckIn Button */}
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {onEditTask && (
+                              <button
+                                type="button"
+                                onClick={() => onEditTask(task)}
+                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Editar evento ou alterar data"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => onDeleteTask(task.id)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Eliminar evento"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+
                             {isDone ? (
                               <div className="flex items-center gap-1 text-[11px] font-black text-emerald-700 bg-emerald-100 px-2 py-1 rounded-lg">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -656,7 +680,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                             ) : (
                               <button
                                 onClick={() => onOpenCheckIn(task)}
-                                className="flex items-center gap-1 text-xs font-black bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-lg shadow-2xs transition-transform active:scale-95"
+                                className="flex items-center gap-1 text-xs font-black bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded-lg shadow-2xs transition-transform active:scale-95"
                               >
                                 <Camera className="w-3 h-3" />
                                 <span>Check-in</span>
