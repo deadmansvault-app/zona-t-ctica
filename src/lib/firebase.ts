@@ -30,6 +30,27 @@ export const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
+export interface FirebaseAuthErrorInfo {
+  code: string;
+  message: string;
+  isUnauthorizedDomain?: boolean;
+  isPopupBlocked?: boolean;
+  hostname: string;
+  projectId: string;
+  settingsUrl: string;
+}
+
+export function getCurrentDomainAuthInfo(): {
+  hostname: string;
+  projectId: string;
+  settingsUrl: string;
+} {
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  const projectId = firebaseConfig.projectId || 'mega-land-h7c1c';
+  const settingsUrl = `https://console.firebase.google.com/project/${projectId}/authentication/settings`;
+  return { hostname, projectId, settingsUrl };
+}
+
 export async function signInWithGoogle(): Promise<User | null> {
   try {
     const result = await signInWithPopup(auth, googleProvider);
@@ -51,8 +72,27 @@ export async function signInWithGoogle(): Promise<User | null> {
       return null;
     }
 
-    console.warn('Aviso no início de sessão com Google:', errorMessage);
-    return null;
+    const { hostname, projectId, settingsUrl } = getCurrentDomainAuthInfo();
+    const isUnauthorized =
+      errorCode === 'auth/unauthorized-domain' ||
+      errorMessage.toLowerCase().includes('unauthorized-domain') ||
+      errorMessage.toLowerCase().includes('not authorized for oauth operations');
+    const isPopupBlocked =
+      errorCode === 'auth/popup-blocked' ||
+      errorMessage.toLowerCase().includes('popup-blocked');
+
+    const authError: FirebaseAuthErrorInfo = {
+      code: errorCode,
+      message: errorMessage,
+      isUnauthorizedDomain: isUnauthorized,
+      isPopupBlocked: isPopupBlocked,
+      hostname,
+      projectId,
+      settingsUrl,
+    };
+
+    console.warn('Erro no início de sessão com Google:', authError);
+    throw authError;
   }
 }
 

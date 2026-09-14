@@ -29,24 +29,28 @@ interface ParentHistoryViewProps {
   tasks: SchoolTask[];
   settings: AppSettings;
   user: User | null;
+  isLoggingIn?: boolean;
   onLoginGoogle: () => void;
   onLogoutGoogle: () => void;
   onSyncAllToCloud: () => Promise<void>;
   onUpdateSettings: (newSettings: AppSettings) => void;
   onExportData: () => void;
   onImportData: (file: File) => void;
+  onOpenCloudInfo?: () => void;
 }
 
 export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
   tasks,
   settings,
   user,
+  isLoggingIn = false,
   onLoginGoogle,
   onLogoutGoogle,
   onSyncAllToCloud,
   onUpdateSettings,
   onExportData,
   onImportData,
+  onOpenCloudInfo,
 }) => {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [pinInput, setPinInput] = useState('');
@@ -502,14 +506,30 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
                   <p className="text-[11px] text-slate-500">
                     Inicia sessão com a conta Google para ligar a base de dados Firestore partilhada.
                   </p>
+                  {onOpenCloudInfo && (
+                    <button
+                      type="button"
+                      onClick={onOpenCloudInfo}
+                      className="mt-1.5 text-[11px] font-bold text-red-600 hover:text-red-800 underline flex items-center gap-1"
+                    >
+                      <Info className="w-3.5 h-3.5" />
+                      <span>Problemas a ligar em produção? Vê os domínios autorizados</span>
+                    </button>
+                  )}
                 </div>
 
                 <button
+                  type="button"
+                  disabled={isLoggingIn}
                   onClick={onLoginGoogle}
-                  className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-extrabold px-4 py-2 rounded-xl transition-all shadow-xs"
+                  className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-extrabold px-4 py-2.5 rounded-xl transition-all shadow-xs disabled:opacity-60 shrink-0"
                 >
-                  <LogIn className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Iniciar Sessão Google</span>
+                  {isLoggingIn ? (
+                    <RefreshCw className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
+                  ) : (
+                    <LogIn className="w-3.5 h-3.5 text-emerald-400" />
+                  )}
+                  <span>{isLoggingIn ? 'A ligar à Google...' : 'Iniciar Sessão Google'}</span>
                 </button>
               </div>
             )}

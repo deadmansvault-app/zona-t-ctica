@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   MessageCircle,
   Image as ImageIcon,
+  RefreshCw,
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { CheckInAlert } from '../types';
@@ -26,6 +27,7 @@ interface NavbarProps {
   pendingCount: number;
   user: User | null;
   alerts?: CheckInAlert[];
+  isLoggingIn?: boolean;
   onLoginGoogle: () => void;
   onLogoutGoogle: () => void;
   onOpenTeamsModal: () => void;
@@ -39,6 +41,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   pendingCount,
   user,
   alerts = [],
+  isLoggingIn = false,
   onLoginGoogle,
   onLogoutGoogle,
   onOpenTeamsModal,
@@ -143,13 +146,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : (
               <button
                 id="btn-login-google"
+                disabled={isLoggingIn}
                 onClick={onLoginGoogle}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 transition-colors disabled:opacity-60"
                 title="Ligar com Google para sincronizar entre telemóveis dos pais e do aluno"
               >
-                <Cloud className="w-3.5 h-3.5 text-slate-500" />
-                <span className="hidden sm:inline">Ligar Nuvem</span>
-                <span className="sm:hidden">Nuvem</span>
+                {isLoggingIn ? (
+                  <RefreshCw className="w-3.5 h-3.5 text-slate-500 animate-spin" />
+                ) : (
+                  <Cloud className="w-3.5 h-3.5 text-slate-500" />
+                )}
+                <span className="hidden sm:inline">{isLoggingIn ? 'A ligar...' : 'Ligar Nuvem'}</span>
+                <span className="sm:hidden">{isLoggingIn ? '...' : 'Nuvem'}</span>
               </button>
             )}
 

@@ -11,6 +11,7 @@ import { EditTaskModal } from './components/EditTaskModal';
 import { TeamsSyncModal } from './components/TeamsSyncModal';
 import { CheckInAlertBanner } from './components/CheckInAlertBanner';
 import { PhotoViewerModal } from './components/PhotoViewerModal';
+import { CloudAuthModal } from './components/CloudAuthModal';
 import {
   SchoolTask,
   ScheduleItem,
@@ -42,6 +43,8 @@ import {
   auth,
   signInWithGoogle,
   logOut,
+  FirebaseAuthErrorInfo,
+  getCurrentDomainAuthInfo,
 } from './lib/firebase';
 import { playAlertChime, sendBrowserNotification } from './lib/sound';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -63,6 +66,9 @@ export default function App() {
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [addTaskInitialDate, setAddTaskInitialDate] = useState<string | undefined>(undefined);
   const [isTeamsSyncOpen, setIsTeamsSyncOpen] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [cloudAuthError, setCloudAuthError] = useState<FirebaseAuthErrorInfo | null>(null);
+  const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const tomorrowDateStr = () => {
@@ -133,10 +139,35 @@ export default function App() {
 
   // Auth Handlers
   const handleLoginGoogle = async () => {
+    setIsLoggingIn(true);
     try {
-      await signInWithGoogle();
+      const u = await signInWithGoogle();
+      if (u) {
+        setIsCloudModalOpen(false);
+        setCloudAuthError(null);
+      }
     } catch (err: any) {
-      console.warn('Início de sessão não concluído:', err?.message || err);
+      if (err && (err.isUnauthorizedDomain || err.isPopupBlocked || err.code)) {
+        setCloudAuthError(err as FirebaseAuthErrorInfo);
+      } else {
+        const { hostname, projectId, settingsUrl } = getCurrentDomainAuthInfo();
+        setCloudAuthError({
+          code: err?.code || 'auth/error',
+          message: err?.message || 'Falha ao iniciar sessão com Google.',
+          isUnauthorizedDomain:
+            String(err?.message || '').toLowerCase().includes('unauthorized-domain') ||
+            String(err?.code || '').includes('unauthorized-domain'),
+          isPopupBlocked:
+            String(err?.message || '').toLowerCase().includes('popup-blocked') ||
+            String(err?.code || '').includes('popup-blocked'),
+          hostname,
+          projectId,
+          settingsUrl,
+        });
+      }
+      setIsCloudModalOpen(true);
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -298,6 +329,7 @@ export default function App() {
         pendingCount={pendingCount}
         user={user}
         alerts={alerts}
+        isLoggingIn={isLoggingIn}
         onLoginGoogle={handleLoginGoogle}
         onLogoutGoogle={handleLogoutGoogle}
         onOpenTeamsModal={() => setIsTeamsSyncOpen(true)}
@@ -377,8 +409,13 @@ export default function App() {
             tasks={tasks}
             settings={settings}
             user={user}
+            isLoggingIn={isLoggingIn}
             onLoginGoogle={handleLoginGoogle}
             onLogoutGoogle={handleLogoutGoogle}
+            onOpenCloudInfo={() => {
+              setCloudAuthError(null);
+              setIsCloudModalOpen(true);
+            }}
             onSyncAllToCloud={async () => {
               await pushAllLocalToFirestore();
             }}
@@ -450,6 +487,15 @@ export default function App() {
           title={previewPhoto.title}
         />
       )}
+
+      {/* Cloud Authentication & Domain Authorization Modal */}
+      <CloudAuthModal
+        isOpen={isCloudModalOpen}
+        onClose={() => setIsCloudModalOpen(false)}
+        errorInfo={cloudAuthError}
+        onRetryLogin={handleLoginGoogle}
+        isLoggingIn={isLoggingIn}
+      />
     </div>
   );
 }
