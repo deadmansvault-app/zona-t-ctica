@@ -42,6 +42,7 @@ import {
 import {
   auth,
   signInWithGoogle,
+  signInFamilySync,
   logOut,
   FirebaseAuthErrorInfo,
   getCurrentDomainAuthInfo,
@@ -166,6 +167,21 @@ export default function App() {
         });
       }
       setIsCloudModalOpen(true);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleConnectFamilySync = async () => {
+    setIsLoggingIn(true);
+    try {
+      const u = await signInFamilySync();
+      if (u) {
+        setIsCloudModalOpen(false);
+        setCloudAuthError(null);
+      }
+    } catch (err: any) {
+      console.error('Falha na ligação direta da família:', err);
     } finally {
       setIsLoggingIn(false);
     }
@@ -412,6 +428,7 @@ export default function App() {
             isLoggingIn={isLoggingIn}
             onLoginGoogle={handleLoginGoogle}
             onLogoutGoogle={handleLogoutGoogle}
+            onConnectFamilySync={handleConnectFamilySync}
             onOpenCloudInfo={() => {
               setCloudAuthError(null);
               setIsCloudModalOpen(true);
@@ -494,6 +511,7 @@ export default function App() {
         onClose={() => setIsCloudModalOpen(false)}
         errorInfo={cloudAuthError}
         onRetryLogin={handleLoginGoogle}
+        onConnectFamilySync={handleConnectFamilySync}
         isLoggingIn={isLoggingIn}
       />
     </div>

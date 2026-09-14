@@ -19,6 +19,7 @@ interface CloudAuthModalProps {
   onClose: () => void;
   errorInfo: FirebaseAuthErrorInfo | null;
   onRetryLogin: () => Promise<void>;
+  onConnectFamilySync: () => Promise<void>;
   isLoggingIn: boolean;
 }
 
@@ -27,6 +28,7 @@ export const CloudAuthModal: React.FC<CloudAuthModalProps> = ({
   onClose,
   errorInfo,
   onRetryLogin,
+  onConnectFamilySync,
   isLoggingIn,
 }) => {
   const [copied, setCopied] = useState(false);
@@ -185,13 +187,44 @@ export const CloudAuthModal: React.FC<CloudAuthModalProps> = ({
 
               {/* Action Buttons */}
               <div className="space-y-2 pt-1">
+                {/* Immediate 1-Click Alternative that bypasses domain restrictions */}
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white px-2 py-0.5 rounded-md">
+                      Solução Imediata
+                    </span>
+                    <span className="font-extrabold text-emerald-950 text-xs">
+                      Ligar Sincronização da Família Agora
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-900 leading-normal">
+                    Não precisas de aceder à consola do Firebase. Ativa a ligação direta da família na nuvem
+                    (Firestore) sem restrições de domínio, sincronizando tarefas e fotos de imediato.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={isLoggingIn}
+                    onClick={async () => {
+                      await onConnectFamilySync();
+                    }}
+                    className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs sm:text-sm py-2.5 rounded-xl shadow-md shadow-emerald-200 transition-all disabled:opacity-50"
+                  >
+                    <Cloud className="w-4 h-4" />
+                    <span>{isLoggingIn ? 'A ativar ligação...' : 'Ativar Sincronização Direta da Família'}</span>
+                  </button>
+                </div>
+
+                <div className="pt-2 text-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                  — Ou adicionar o domínio manualmente —
+                </div>
+
                 <a
                   href={settingsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-xs sm:text-sm py-3 rounded-xl shadow-md shadow-red-200 transition-all text-center"
+                  className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs py-2.5 rounded-xl border border-slate-200 transition-all text-center"
                 >
-                  <ExternalLink className="w-4 h-4" />
+                  <ExternalLink className="w-3.5 h-3.5" />
                   <span>Abrir Consola do Firebase (Authentication)</span>
                 </a>
 
@@ -204,7 +237,7 @@ export const CloudAuthModal: React.FC<CloudAuthModalProps> = ({
                   className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-extrabold text-xs py-2.5 rounded-xl transition-all disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isLoggingIn ? 'animate-spin' : ''}`} />
-                  <span>{isLoggingIn ? 'A ligar à Google...' : 'Já adicionei, Tentar Ligar Novamente'}</span>
+                  <span>{isLoggingIn ? 'A ligar à Google...' : 'Já adicionei, Tentar Login Google'}</span>
                 </button>
               </div>
             </>

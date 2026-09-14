@@ -32,6 +32,7 @@ interface ParentHistoryViewProps {
   isLoggingIn?: boolean;
   onLoginGoogle: () => void;
   onLogoutGoogle: () => void;
+  onConnectFamilySync?: () => Promise<void>;
   onSyncAllToCloud: () => Promise<void>;
   onUpdateSettings: (newSettings: AppSettings) => void;
   onExportData: () => void;
@@ -46,6 +47,7 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
   isLoggingIn = false,
   onLoginGoogle,
   onLogoutGoogle,
+  onConnectFamilySync,
   onSyncAllToCloud,
   onUpdateSettings,
   onExportData,
@@ -447,11 +449,15 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="w-9 h-9 rounded-full bg-emerald-600 text-white font-black flex items-center justify-center text-sm">
-                      {user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}
+                      {user.displayName?.charAt(0) || (user.email ? user.email.charAt(0) : 'F')}
                     </div>
                     <div>
-                      <p className="text-xs font-black text-slate-900">{user.displayName || 'Utilizador da Família'}</p>
-                      <p className="text-[11px] text-slate-500">{user.email}</p>
+                      <p className="text-xs font-black text-slate-900">
+                        {user.displayName || (user.isAnonymous ? 'Dispositivo da Família (Sincronizado)' : 'Utilizador da Família')}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        {user.email || 'Ligação direta à Nuvem Firestore ativa'}
+                      </p>
                     </div>
                   </div>
 
@@ -518,19 +524,34 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  disabled={isLoggingIn}
-                  onClick={onLoginGoogle}
-                  className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-extrabold px-4 py-2.5 rounded-xl transition-all shadow-xs disabled:opacity-60 shrink-0"
-                >
-                  {isLoggingIn ? (
-                    <RefreshCw className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
-                  ) : (
-                    <LogIn className="w-3.5 h-3.5 text-emerald-400" />
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+                  {onConnectFamilySync && (
+                    <button
+                      type="button"
+                      disabled={isLoggingIn}
+                      onClick={onConnectFamilySync}
+                      className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black px-4 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-200 disabled:opacity-60"
+                      title="Sincronizar sem restrições de domínio"
+                    >
+                      <Cloud className="w-3.5 h-3.5 text-white" />
+                      <span>Ligar Nuvem (Direto)</span>
+                    </button>
                   )}
-                  <span>{isLoggingIn ? 'A ligar à Google...' : 'Iniciar Sessão Google'}</span>
-                </button>
+
+                  <button
+                    type="button"
+                    disabled={isLoggingIn}
+                    onClick={onLoginGoogle}
+                    className="flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-extrabold px-4 py-2.5 rounded-xl transition-all shadow-xs disabled:opacity-60"
+                  >
+                    {isLoggingIn ? (
+                      <RefreshCw className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
+                    ) : (
+                      <LogIn className="w-3.5 h-3.5 text-emerald-400" />
+                    )}
+                    <span>Google</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

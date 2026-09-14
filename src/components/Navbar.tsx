@@ -113,7 +113,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <Cloud className="w-3.5 h-3.5 text-emerald-600" />
                   <span className="hidden sm:inline truncate max-w-[110px]">
-                    {user.displayName?.split(' ')[0] || 'Nuvem Ativa'}
+                    {user.displayName?.split(' ')[0] || (user.isAnonymous ? 'Família' : 'Nuvem Ativa')}
                   </span>
                   <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 </button>
@@ -122,9 +122,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div className="absolute right-0 mt-1 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in">
                     <div className="px-3 py-1.5 border-b border-slate-100">
                       <p className="text-xs font-bold text-slate-900 truncate">
-                        {user.displayName || 'Utilizador'}
+                        {user.displayName || (user.isAnonymous ? 'Dispositivo da Família' : 'Utilizador')}
                       </p>
-                      <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{user.email || 'Ligação direta à Nuvem'}</p>
                       <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-700 font-bold">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         <span>Firebase Firestore Sincronizado</span>

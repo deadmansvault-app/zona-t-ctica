@@ -3,6 +3,7 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInAnonymously,
   signOut as firebaseSignOut,
   User,
   onAuthStateChanged,
@@ -93,6 +94,21 @@ export async function signInWithGoogle(): Promise<User | null> {
 
     console.warn('Erro no início de sessão com Google:', authError);
     throw authError;
+  }
+}
+
+/**
+ * Sign in as a family device / anonymous session.
+ * Does NOT require Google OAuth popup or domain authorization.
+ * Allows Firestore real-time sync immediately on GitHub Pages and all domains.
+ */
+export async function signInFamilySync(): Promise<User | null> {
+  try {
+    const cred = await signInAnonymously(auth);
+    return cred.user;
+  } catch (error: any) {
+    console.error('Erro no início de sessão anónimo / família:', error);
+    throw error;
   }
 }
 
