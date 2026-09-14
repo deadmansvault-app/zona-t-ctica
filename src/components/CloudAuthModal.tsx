@@ -38,7 +38,7 @@ export const CloudAuthModal: React.FC<CloudAuthModalProps> = ({
   const hostname =
     errorInfo?.hostname ||
     (typeof window !== 'undefined' ? window.location.hostname : 'localhost');
-  const projectId = errorInfo?.projectId || 'mega-land-h7c1c';
+  const projectId = errorInfo?.projectId || 'zona-tatica';
   const settingsUrl =
     errorInfo?.settingsUrl ||
     `https://console.firebase.google.com/project/${projectId}/authentication/settings`;

@@ -23,8 +23,11 @@ import firebaseConfig from '../../firebase-applet-config.json';
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// CRITICAL: The app will break without firebaseConfig.firestoreDatabaseId
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Initialize Firestore (works with '(default)', empty, or custom databaseId)
+export const db =
+  firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+    ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+    : getFirestore(app);
 export const auth = getAuth(app);
 
 // Authentication helpers
@@ -47,7 +50,7 @@ export function getCurrentDomainAuthInfo(): {
   settingsUrl: string;
 } {
   const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-  const projectId = firebaseConfig.projectId || 'mega-land-h7c1c';
+  const projectId = firebaseConfig.projectId || 'zona-tatica';
   const settingsUrl = `https://console.firebase.google.com/project/${projectId}/authentication/settings`;
   return { hostname, projectId, settingsUrl };
 }

@@ -1,12 +1,12 @@
 {
-  "projectId": "mega-land-h7c1c",
-  "appId": "1:402485463384:web:b14967f1f8352f35b0fd2d",
-  "apiKey": "AIzaSyCqQ4QoSWWXtQDmP3z-zZdVcNbtyfl2GFw",
-  "authDomain": "mega-land-h7c1c.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-foco9bagendaesco-9d2ebcf5-6b35-40c0-a3bd-afd42ca49d79",
-  "storageBucket": "mega-land-h7c1c.firebasestorage.app",
-  "messagingSenderId": "402485463384",
-  "measurementId": "",
-  "oAuthClientId": "402485463384-nj7li4bk76p5vocdshkpk8vhl1h0muet.apps.googleusercontent.com",
+  "projectId": "zona-tatica",
+  "appId": "1:488806974468:web:3e4daba6aa9fd742ade151",
+  "apiKey": "AIzaSyDuh8yop5OsPyG1vtvkrXdn7OTxno1lArU",
+  "authDomain": "zona-tatica.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "zona-tatica.firebasestorage.app",
+  "messagingSenderId": "488806974468",
+  "measurementId": "G-8L69KVKTZ5",
+  "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }
