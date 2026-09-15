@@ -60,5 +60,11 @@ service cloud.firestore {
       allow read, list: if true;
       allow create, update, delete: if isSignedIn();
     }
+
+    // Backpack Checklist Collection
+    match /backpack/{dateKey} {
+      allow read, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
   }
 }

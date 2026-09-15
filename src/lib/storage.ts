@@ -13,6 +13,7 @@ import {
   collection,
   onSnapshot,
   getDocs,
+  getDoc,
   query,
   orderBy,
   limit,
@@ -21,6 +22,12 @@ import {
 const DB_NAME = 'FocoEscolar9B_DB';
 const DB_VERSION = 2;
 const FALLBACK_PREFIX = 'foco_9b_';
+
+export function getTomorrowDateStr(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split('T')[0];
+}
 
 // Helper to remove undefined values for Firestore serialization
 function cleanForFirestore<T extends Record<string, any>>(obj: T): T {
@@ -80,6 +87,8 @@ function openDatabase(): Promise<IDBDatabase> {
 // ----------------- TASKS -----------------
 
 export async function loadTasks(): Promise<SchoolTask[]> {
+  const hasSeeded = typeof window !== 'undefined' ? localStorage.getItem(`${FALLBACK_PREFIX}has_seeded`) : null;
+
   try {
     const db = await openDatabase();
     return new Promise((resolve) => {
@@ -88,14 +97,21 @@ export async function loadTasks(): Promise<SchoolTask[]> {
       const request = store.getAll();
       request.onsuccess = () => {
         const result = request.result as SchoolTask[];
-        if (!result || result.length === 0) {
-          // Seed with initial tasks
+        if ((!result || result.length === 0) && !hasSeeded) {
+          // Seed with initial tasks ONLY on first ever run before user has configured anything
           const txWrite = db.transaction('tasks', 'readwrite');
           const storeWrite = txWrite.objectStore('tasks');
           INITIAL_TASKS.forEach((t) => storeWrite.put(t));
+          try {
+            localStorage.setItem(`${FALLBACK_PREFIX}has_seeded`, 'true');
+            localStorage.setItem(`${FALLBACK_PREFIX}tasks`, JSON.stringify(INITIAL_TASKS));
+          } catch {}
           resolve(INITIAL_TASKS);
         } else {
-          resolve(result);
+          try {
+            localStorage.setItem(`${FALLBACK_PREFIX}has_seeded`, 'true');
+          } catch {}
+          resolve(result || []);
         }
       };
       request.onerror = () => {
@@ -109,13 +125,20 @@ export async function loadTasks(): Promise<SchoolTask[]> {
 }
 
 function loadTasksFromLocalStorage(): SchoolTask[] {
+  const hasSeeded = typeof window !== 'undefined' ? localStorage.getItem(`${FALLBACK_PREFIX}has_seeded`) : null;
   try {
     const raw = localStorage.getItem(`${FALLBACK_PREFIX}tasks`);
-    if (raw) return JSON.parse(raw);
-    localStorage.setItem(`${FALLBACK_PREFIX}tasks`, JSON.stringify(INITIAL_TASKS));
-    return INITIAL_TASKS;
+    if (raw !== null) {
+      return JSON.parse(raw);
+    }
+    if (!hasSeeded) {
+      localStorage.setItem(`${FALLBACK_PREFIX}has_seeded`, 'true');
+      localStorage.setItem(`${FALLBACK_PREFIX}tasks`, JSON.stringify(INITIAL_TASKS));
+      return INITIAL_TASKS;
+    }
+    return [];
   } catch {
-    return INITIAL_TASKS;
+    return hasSeeded ? [] : INITIAL_TASKS;
   }
 }
 
@@ -129,11 +152,13 @@ export async function saveTask(task: SchoolTask): Promise<void> {
     console.warn('Erro no IndexedDB:', err);
   }
   try {
-    const tasks = await loadTasks();
+    const raw = localStorage.getItem(`${FALLBACK_PREFIX}tasks`);
+    let tasks: SchoolTask[] = raw ? JSON.parse(raw) : [];
     const idx = tasks.findIndex((t) => t.id === task.id);
     if (idx >= 0) tasks[idx] = task;
     else tasks.unshift(task);
     localStorage.setItem(`${FALLBACK_PREFIX}tasks`, JSON.stringify(tasks));
+    localStorage.setItem(`${FALLBACK_PREFIX}has_seeded`, 'true');
   } catch {
     // ignore
   }
@@ -150,22 +175,29 @@ export async function saveTask(task: SchoolTask): Promise<void> {
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
-  // 1. Local delete
+  // 1. Local delete in IndexedDB
   try {
     const dbInst = await openDatabase();
     const tx = dbInst.transaction('tasks', 'readwrite');
     tx.objectStore('tasks').delete(taskId);
   } catch (err) {
-    console.warn('Erro ao eliminar tarefa:', err);
+    console.warn('Erro ao eliminar tarefa no IndexedDB:', err);
   }
+
+  // 2. Local delete in LocalStorage (without calling loadTasks() to prevent re-seeding)
   try {
-    const tasks = (await loadTasks()).filter((t) => t.id !== taskId);
-    localStorage.setItem(`${FALLBACK_PREFIX}tasks`, JSON.stringify(tasks));
+    const raw = localStorage.getItem(`${FALLBACK_PREFIX}tasks`);
+    if (raw) {
+      const parsed = JSON.parse(raw) as SchoolTask[];
+      const filtered = parsed.filter((t) => t.id !== taskId);
+      localStorage.setItem(`${FALLBACK_PREFIX}tasks`, JSON.stringify(filtered));
+      localStorage.setItem(`${FALLBACK_PREFIX}has_seeded`, 'true');
+    }
   } catch {
     // ignore
   }
 
-  // 2. Firebase delete
+  // 3. Delete in Firebase Firestore if authenticated
   if (auth.currentUser) {
     const path = `tasks/${taskId}`;
     try {
@@ -186,19 +218,30 @@ export function subscribeToFirebaseTasks(onUpdate: (tasks: SchoolTask[]) => void
   const unsubscribe = onSnapshot(
     collection(db, path),
     (snapshot) => {
-      if (!snapshot.empty) {
-        const cloudTasks: SchoolTask[] = [];
-        snapshot.forEach((docSnap) => {
-          cloudTasks.push(docSnap.data() as SchoolTask);
-        });
-        // Update local IndexedDB
-        openDatabase().then((idb) => {
+      const cloudTasks: SchoolTask[] = [];
+      snapshot.forEach((docSnap) => {
+        cloudTasks.push(docSnap.data() as SchoolTask);
+      });
+
+      // Update local storage and IndexedDB with cloud authority
+      try {
+        localStorage.setItem(`${FALLBACK_PREFIX}tasks`, JSON.stringify(cloudTasks));
+        localStorage.setItem(`${FALLBACK_PREFIX}has_seeded`, 'true');
+      } catch {
+        // ignore
+      }
+
+      openDatabase()
+        .then((idb) => {
           const tx = idb.transaction('tasks', 'readwrite');
           const store = tx.objectStore('tasks');
+          store.clear();
           cloudTasks.forEach((t) => store.put(t));
-        }).catch(() => {});
-        onUpdate(cloudTasks);
-      }
+        })
+        .catch(() => {});
+
+      // Call onUpdate with cloudTasks (even if empty [])
+      onUpdate(cloudTasks);
     },
     (err) => {
       handleFirestoreError(err, OperationType.LIST, path);
@@ -264,6 +307,30 @@ export async function saveCheckIn(record: CheckInRecord): Promise<void> {
 // ----------------- SCHEDULE -----------------
 
 export async function loadSchedule(): Promise<ScheduleItem[]> {
+  // If user is logged in, check Firestore
+  if (auth.currentUser) {
+    try {
+      const snap = await getDocs(collection(db, 'schedule'));
+      if (!snap.empty) {
+        const cloudSched: ScheduleItem[] = [];
+        snap.forEach((d) => cloudSched.push(d.data() as ScheduleItem));
+        if (cloudSched.length > 0) {
+          try {
+            const dbInst = await openDatabase();
+            const tx = dbInst.transaction('schedule', 'readwrite');
+            const store = tx.objectStore('schedule');
+            store.clear();
+            cloudSched.forEach((s) => store.put(s));
+          } catch {}
+          return cloudSched;
+        }
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar horário do Firestore:', err);
+    }
+  }
+
+  const hasSeededSchedule = typeof window !== 'undefined' ? localStorage.getItem(`${FALLBACK_PREFIX}has_seeded_schedule`) : null;
   try {
     const dbInst = await openDatabase();
     return new Promise((resolve) => {
@@ -272,13 +339,16 @@ export async function loadSchedule(): Promise<ScheduleItem[]> {
       const request = store.getAll();
       request.onsuccess = () => {
         const result = request.result as ScheduleItem[];
-        if (!result || result.length === 0) {
+        if ((!result || result.length === 0) && !hasSeededSchedule) {
           const txWrite = dbInst.transaction('schedule', 'readwrite');
           const storeWrite = txWrite.objectStore('schedule');
           INITIAL_SCHEDULE.forEach((s) => storeWrite.put(s));
+          try {
+            localStorage.setItem(`${FALLBACK_PREFIX}has_seeded_schedule`, 'true');
+          } catch {}
           resolve(INITIAL_SCHEDULE);
         } else {
-          resolve(result);
+          resolve(result || []);
         }
       };
       request.onerror = () => resolve(INITIAL_SCHEDULE);
@@ -314,6 +384,22 @@ export async function saveSchedule(schedule: ScheduleItem[]): Promise<void> {
 // ----------------- SETTINGS -----------------
 
 export async function loadSettings(): Promise<AppSettings> {
+  // Check Firestore first if logged in
+  if (auth.currentUser) {
+    try {
+      const snap = await getDoc(doc(db, 'settings', 'app_settings'));
+      if (snap.exists()) {
+        const cloudSet = snap.data() as AppSettings;
+        try {
+          localStorage.setItem(`${FALLBACK_PREFIX}settings`, JSON.stringify(cloudSet));
+        } catch {}
+        return cloudSet;
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar configurações do Firestore:', err);
+    }
+  }
+
   try {
     const dbInst = await openDatabase();
     return new Promise((resolve) => {
@@ -366,6 +452,25 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
 // ----------------- BACKPACK -----------------
 
 export async function loadBackpackItems(dateKey: string): Promise<string[]> {
+  // If user is authenticated, query Firestore first
+  if (auth.currentUser) {
+    try {
+      const snap = await getDoc(doc(db, 'backpack', dateKey));
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data && Array.isArray(data.items)) {
+          try {
+            localStorage.setItem(`${FALLBACK_PREFIX}backpack_${dateKey}`, JSON.stringify(data.items));
+          } catch {}
+          return data.items;
+        }
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar mochila do Firestore:', err);
+    }
+  }
+
+  // Fallback to local cache
   try {
     const raw = localStorage.getItem(`${FALLBACK_PREFIX}backpack_${dateKey}`);
     return raw ? JSON.parse(raw) : [];
@@ -375,22 +480,74 @@ export async function loadBackpackItems(dateKey: string): Promise<string[]> {
 }
 
 export async function saveBackpackItems(dateKey: string, items: string[]): Promise<void> {
+  // 1. Save locally (localStorage & IndexedDB)
   try {
     localStorage.setItem(`${FALLBACK_PREFIX}backpack_${dateKey}`, JSON.stringify(items));
+    const dbInst = await openDatabase();
+    const tx = dbInst.transaction('backpack', 'readwrite');
+    tx.objectStore('backpack').put({ dateKey, items, updatedAt: new Date().toISOString() });
   } catch {
     // ignore
   }
+
+  // 2. Sync to Firebase Firestore
+  if (auth.currentUser) {
+    const path = `backpack/${dateKey}`;
+    try {
+      await setDoc(doc(db, 'backpack', dateKey), {
+        dateKey,
+        items,
+        updatedAt: new Date().toISOString(),
+        updatedBy: auth.currentUser.uid,
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    }
+  }
+}
+
+export function subscribeToFirebaseBackpack(
+  dateKey: string,
+  onUpdate: (items: string[]) => void
+): () => void {
+  if (!auth.currentUser) {
+    return () => {};
+  }
+
+  const path = `backpack/${dateKey}`;
+  const docRef = doc(db, 'backpack', dateKey);
+
+  const unsubscribe = onSnapshot(
+    docRef,
+    (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const items = Array.isArray(data?.items) ? data.items : [];
+        try {
+          localStorage.setItem(`${FALLBACK_PREFIX}backpack_${dateKey}`, JSON.stringify(items));
+        } catch {}
+        onUpdate(items);
+      }
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.GET, path);
+    }
+  );
+
+  return unsubscribe;
 }
 
 // ----------------- PUSH LOCAL TO FIRESTORE -----------------
 export async function pushAllLocalToFirestore(): Promise<{ count: number }> {
   if (!auth.currentUser) throw new Error('Inicia sessão para sincronizar com a nuvem');
 
-  const [tasks, checkins, schedule, settings] = await Promise.all([
+  const tomorrowStr = getTomorrowDateStr();
+  const [tasks, checkins, schedule, settings, backpack] = await Promise.all([
     loadTasks(),
     loadCheckIns(),
     loadSchedule(),
     loadSettings(),
+    loadBackpackItems(tomorrowStr),
   ]);
 
   let count = 0;
@@ -406,8 +563,22 @@ export async function pushAllLocalToFirestore(): Promise<{ count: number }> {
     await setDoc(doc(db, 'schedule', s.id), cleanForFirestore(s));
     count++;
   }
-  await setDoc(doc(db, 'settings', 'app_settings'), cleanForFirestore(settings));
+  await setDoc(doc(db, 'settings', 'app_settings'), {
+    ...cleanForFirestore(settings),
+    isCloudInitialized: true,
+    updatedAt: new Date().toISOString(),
+  });
   count++;
+
+  if (backpack && backpack.length > 0) {
+    await setDoc(doc(db, 'backpack', tomorrowStr), {
+      dateKey: tomorrowStr,
+      items: backpack,
+      updatedAt: new Date().toISOString(),
+      updatedBy: auth.currentUser.uid,
+    });
+    count++;
+  }
 
   return { count };
 }

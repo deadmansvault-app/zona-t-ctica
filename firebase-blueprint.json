@@ -74,6 +74,17 @@
         "photoDataUrl": { "type": "string" }
       },
       "required": ["id", "taskId", "taskTitle", "subjectCode", "message", "timestamp"]
+    },
+    "BackpackDay": {
+      "title": "BackpackDay",
+      "description": "Daily backpack preparation checklist items status",
+      "type": "object",
+      "properties": {
+        "dateKey": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "string" } },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["dateKey", "items"]
     }
   },
   "firestore": {
@@ -96,6 +107,10 @@
     "/settings/{settingId}": {
       "schema": "Settings",
       "description": "App settings configuration"
+    },
+    "/backpack/{dateKey}": {
+      "schema": "BackpackDay",
+      "description": "Backpack checklist status per date"
     }
   }
 }

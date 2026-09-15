@@ -31,6 +31,8 @@ import {
   saveCheckIn,
   loadBackpackItems,
   saveBackpackItems,
+  subscribeToFirebaseBackpack,
+  getTomorrowDateStr,
   exportAllData,
   importAllData,
   subscribeToFirebaseTasks,
@@ -72,47 +74,91 @@ export default function App() {
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const tomorrowDateStr = () => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().split('T')[0];
-  };
+  const tomorrowDateStr = () => getTomorrowDateStr();
 
   // Listen to Firebase Auth state
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+    let unsubTasks: (() => void) | null = null;
+    let unsubBackpack: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // Subscribe to real-time Firestore updates
-        const unsubscribeFirestore = subscribeToFirebaseTasks((cloudTasks) => {
-          if (cloudTasks && cloudTasks.length > 0) {
-            setTasks(cloudTasks);
-          }
+        const tDate = getTomorrowDateStr();
+
+        // 1. Real-time tasks subscription from Firestore (even if empty)
+        unsubTasks = subscribeToFirebaseTasks((cloudTasks) => {
+          setTasks(cloudTasks);
         });
-        return () => unsubscribeFirestore();
+
+        // 2. Real-time backpack subscription from Firestore
+        unsubBackpack = subscribeToFirebaseBackpack(tDate, (cloudItems) => {
+          setBackpackChecked(cloudItems);
+        });
+
+        // 3. Immediately pull cloud backpack items or sync local items to cloud
+        try {
+          const cloudBackpack = await loadBackpackItems(tDate);
+          if (cloudBackpack && cloudBackpack.length > 0) {
+            setBackpackChecked(cloudBackpack);
+          } else {
+            // Check if local cache has items that need to be uploaded to cloud
+            const rawLocal = localStorage.getItem(`foco_9b_backpack_${tDate}`);
+            if (rawLocal) {
+              const localItems: string[] = JSON.parse(rawLocal);
+              if (localItems && localItems.length > 0) {
+                await saveBackpackItems(tDate, localItems);
+              }
+            }
+          }
+
+          // 4. Load cloud settings & schedule
+          const [cloudSettings, cloudSchedule] = await Promise.all([
+            loadSettings(),
+            loadSchedule(),
+          ]);
+          setSettings(cloudSettings);
+          if (cloudSchedule && cloudSchedule.length > 0) {
+            setSchedule(cloudSchedule);
+          }
+        } catch (e) {
+          console.warn('Erro ao carregar dados remotos:', e);
+        }
+      } else {
+        if (unsubTasks) {
+          unsubTasks();
+          unsubTasks = null;
+        }
+        if (unsubBackpack) {
+          unsubBackpack();
+          unsubBackpack = null;
+        }
       }
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+      unsubscribeAuth();
+      if (unsubTasks) unsubTasks();
+      if (unsubBackpack) unsubBackpack();
+    };
   }, []);
 
   // Initial load
   useEffect(() => {
     async function init() {
       try {
-        const [loadedTasks, loadedSchedule, loadedSettings, loadedAlerts] = await Promise.all([
+        const tDate = getTomorrowDateStr();
+        const [loadedTasks, loadedSchedule, loadedSettings, loadedAlerts, bItems] = await Promise.all([
           loadTasks(),
           loadSchedule(),
           loadSettings(),
           loadAlerts(),
+          loadBackpackItems(tDate),
         ]);
         setTasks(loadedTasks);
         setSchedule(loadedSchedule);
         setSettings(loadedSettings);
         setAlerts(loadedAlerts);
-
-        // Load tomorrow's backpack checked items
-        const bItems = await loadBackpackItems(tomorrowDateStr());
         setBackpackChecked(bItems);
       } catch (err) {
         console.error('Erro a inicializar dados:', err);
