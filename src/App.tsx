@@ -12,6 +12,7 @@ import { TeamsSyncModal } from './components/TeamsSyncModal';
 import { CheckInAlertBanner } from './components/CheckInAlertBanner';
 import { PhotoViewerModal } from './components/PhotoViewerModal';
 import { CloudAuthModal } from './components/CloudAuthModal';
+import { LoginPage } from './components/LoginPage';
 import {
   SchoolTask,
   ScheduleItem,
@@ -73,6 +74,7 @@ export default function App() {
   const [cloudAuthError, setCloudAuthError] = useState<FirebaseAuthErrorInfo | null>(null);
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthInitializing, setIsAuthInitializing] = useState(true);
 
   const tomorrowDateStr = () => getTomorrowDateStr();
 
@@ -83,6 +85,7 @@ export default function App() {
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      setIsAuthInitializing(false);
       if (currentUser) {
         const tDate = getTomorrowDateStr();
 
@@ -366,7 +369,7 @@ export default function App() {
   // Pending tasks count
   const pendingCount = tasks.filter((t) => !t.checkIn).length;
 
-  if (isLoading) {
+  if (isLoading || isAuthInitializing) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="text-center space-y-3">
@@ -375,9 +378,28 @@ export default function App() {
             A carregar Foco Escolar 9º B...
           </p>
           <p className="text-xs text-slate-500">
-            Escola Básica António Gedeão
+            Escola Básica António Gedeão • A verificar sessão
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // If user is not authenticated: Show ONLY the Login Page!
+  // Nothing of the platform (navbar, dashboard, tasks, schedule, parents) is accessible or visible until login.
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
+          <LoginPage
+            user={user}
+            onNavigateToDashboard={() => setActiveTab('dashboard')}
+            onNavigateToParents={() => setActiveTab('pais')}
+          />
+        </div>
+        <footer className="border-t border-slate-200 bg-white py-3.5 px-4 text-center text-xs text-slate-500">
+          <p>Foco 9º B • Turma do Afonso • Escola Básica António Gedeão • Acesso Reservado</p>
+        </footer>
       </div>
     );
   }

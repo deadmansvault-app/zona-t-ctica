@@ -4,6 +4,9 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signInAnonymously,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   signOut as firebaseSignOut,
   User,
   onAuthStateChanged,
@@ -113,6 +116,57 @@ export async function signInFamilySync(): Promise<User | null> {
     console.error('Erro no início de sessão anónimo / família:', error);
     throw error;
   }
+}
+
+export async function signInWithEmail(email: string, pass: string): Promise<User> {
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email.trim(), pass);
+    return cred.user;
+  } catch (error: any) {
+    console.warn('Erro no login por email:', error);
+    throw error;
+  }
+}
+
+export async function signUpWithEmail(email: string, pass: string, name?: string): Promise<User> {
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+    if (name && name.trim()) {
+      await updateProfile(cred.user, { displayName: name.trim() });
+    }
+    return cred.user;
+  } catch (error: any) {
+    console.warn('Erro no registo por email:', error);
+    throw error;
+  }
+}
+
+export function translateAuthError(error: any): string {
+  const code = error?.code || '';
+  const msg = error?.message || String(error);
+
+  if (code === 'auth/invalid-email' || msg.includes('invalid-email')) {
+    return 'O endereço de email introduzido não é válido.';
+  }
+  if (code === 'auth/user-not-found' || msg.includes('user-not-found')) {
+    return 'Não foi encontrada nenhuma conta com este email.';
+  }
+  if (code === 'auth/wrong-password' || msg.includes('wrong-password') || code === 'auth/invalid-credential') {
+    return 'Email ou palavra-passe incorretos.';
+  }
+  if (code === 'auth/email-already-in-use' || msg.includes('email-already-in-use')) {
+    return 'Já existe uma conta registada com este email. Tente iniciar sessão.';
+  }
+  if (code === 'auth/weak-password' || msg.includes('weak-password')) {
+    return 'A palavra-passe deve ter pelo menos 6 caracteres.';
+  }
+  if (code === 'auth/popup-blocked' || msg.includes('popup-blocked')) {
+    return 'A janela de autenticação foi bloqueada pelo navegador. Permita popups ou use o Modo Família.';
+  }
+  if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
+    return 'Este domínio ainda precisa de ser adicionado no Firebase Console. Utilize o Modo Família para sincronizar já.';
+  }
+  return msg || 'Ocorreu um erro ao processar a autenticação.';
 }
 
 export async function logOut(): Promise<void> {
