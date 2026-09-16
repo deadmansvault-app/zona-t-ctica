@@ -26,15 +26,18 @@ import {
   translateAuthError,
   logOut,
 } from '../lib/firebase';
+import { AppSettings } from '../types';
 
 interface LoginPageProps {
   user: User | null;
+  settings?: AppSettings;
   onNavigateToDashboard: () => void;
   onNavigateToParents: () => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({
   user,
+  settings,
   onNavigateToDashboard,
   onNavigateToParents,
 }) => {
@@ -139,10 +142,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-600/10 border border-red-500/30 text-red-500 text-xs font-bold shadow-xs">
           <Sparkles className="w-3.5 h-3.5 text-red-500" />
-          <span>Área Reservada • EB António Gedeão</span>
+          <span>
+            Área Reservada • {settings?.schoolName ? settings.schoolName.replace('Escola Básica ', 'EB ') : 'EB António Gedeão'}
+            {settings?.academicYear ? ` (${settings.academicYear})` : ''}
+          </span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-          Foco Escolar 9º B
+          Foco Escolar <span className="text-red-600">{settings?.studentClass || '9º B'}</span>
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto">
           Inicia sessão para aceder ao horário, trabalhos de casa, preparação da mochila e check-ins com fotografia.
@@ -225,7 +231,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           {authMode === 'google' && (
             <div className="space-y-4 py-1">
               <p className="text-xs text-slate-500 text-center">
-                Entra com a tua conta Gmail habitual (pais ou Afonso) para manter a sessão sincronizada entre todos os dispositivos.
+                Entra com a tua conta Gmail habitual (pais ou Francisco) para manter a sessão sincronizada entre todos os dispositivos.
               </p>
 
               <button
@@ -301,7 +307,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       type="text"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder="Ex: Afonso, Pai ou Mãe"
+                      placeholder="Ex: Francisco, Pai ou Mãe"
                       className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-500"
                     />
                   </div>
@@ -366,7 +372,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   <span>Entrada Imediata Sem Senhas</span>
                 </div>
                 <p className="leading-relaxed">
-                  Autoriza este telemóvel ou computador a ligar-se diretamente à base de dados do 9º B em tempo real. Ideal para acesso rápido no telemóvel do Afonso ou dos pais.
+                  Autoriza este telemóvel ou computador a ligar-se diretamente à base de dados do 9º B em tempo real. Ideal para acesso rápido no telemóvel do Francisco ou dos pais.
                 </p>
               </div>
 

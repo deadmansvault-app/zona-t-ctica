@@ -44,6 +44,7 @@ export interface SchoolTask {
   studyPlanDaysBefore?: number;
   studySessions?: StudySession[];
   checkIn?: CheckInRecord;
+  academicYear?: string; // e.g. "2026/2027"
   createdAt: string;
 }
 
@@ -69,6 +70,7 @@ export interface ScheduleItem {
   timeIndex: number;
   subjectCode: string;
   room: string;
+  academicYear?: string; // e.g. "2026/2027"
   note?: string;
 }
 
@@ -78,4 +80,9 @@ export interface AppSettings {
   parentPin: string; // Default "1904"
   studentName: string;
   favoriteTeam: string;
+  academicYear: string; // e.g. "2026/2027"
+  availableAcademicYears?: string[]; // e.g. ['2025/2026', '2026/2027', '2027/2028']
+  schoolName: string; // e.g. "Escola Básica António Gedeão"
+  studentClass: string; // e.g. "9º B"
+  allowedEmails: string[]; // Access allowlist, e.g. ['meiraxx@gmail.com']
 }

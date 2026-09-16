@@ -70,7 +70,7 @@ export const CheckInAlertBanner: React.FC<CheckInAlertBannerProps> = ({
   });
 
   // Pre-formatted WhatsApp message
-  const author = alert.authorName || 'O Afonso';
+  const author = alert.authorName || 'O Francisco';
   const waText = encodeURIComponent(
     `✅ *Confirmação de Check-in (Foco 9º B)*\n` +
       `📌 *${typeName} de ${subject.name}*: "${alert.taskTitle}"\n` +

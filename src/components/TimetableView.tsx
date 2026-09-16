@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
-import { Calendar, Dumbbell, User, MapPin, Edit2, Check, X, ShieldAlert } from 'lucide-react';
-import { ScheduleItem } from '../types';
+import { Calendar, Dumbbell, User, MapPin, Edit2, Check, X, Plus } from 'lucide-react';
+import { ScheduleItem, AppSettings } from '../types';
 import { SUBJECTS, TIME_SLOTS, HANDBALL_TRAINING } from '../data/timetableData';
 
 interface TimetableViewProps {
   schedule: ScheduleItem[];
+  settings?: AppSettings;
   onUpdateScheduleItem: (updated: ScheduleItem) => void;
+  onAddScheduleItem?: (item: ScheduleItem) => void;
 }
 
 export const TimetableView: React.FC<TimetableViewProps> = ({
   schedule,
+  settings,
   onUpdateScheduleItem,
+  onAddScheduleItem,
 }) => {
   const [editingItem, setEditingItem] = useState<ScheduleItem | null>(null);
   const [editRoom, setEditRoom] = useState('');
@@ -47,17 +51,17 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-black uppercase tracking-wider bg-red-600 text-white px-2.5 py-0.5 rounded-full">
-              Ano Letivo 2026-2027
+              Ano Letivo {settings?.academicYear || '2026/2027'}
             </span>
             <span className="text-xs font-bold text-slate-500">
-              Em vigor a partir de 1 de setembro de 2026
+              Aluno: {settings?.studentName || 'Francisco'}
             </span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-900">
-            Horário Semanal da Turma 9º B
+            Horário Semanal da Turma {settings?.studentClass || '9º B'}
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 mt-1">
-            Escola Básica António Gedeão • Diretora de Turma: Prof.ª H13
+            {settings?.schoolName || 'Escola Básica António Gedeão'} • Horário Escolar
           </p>
         </div>
 

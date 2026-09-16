@@ -20,6 +20,11 @@ import {
   RefreshCw,
   LogOut,
   LogIn,
+  User as UserIcon,
+  Mail,
+  School,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { SchoolTask, CheckInRecord, AppSettings } from '../types';
@@ -65,7 +70,32 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
   // Settings local state
   const [greenDays, setGreenDays] = useState(settings.greenDaysThreshold);
   const [yellowDays, setYellowDays] = useState(settings.yellowDaysThreshold);
+  const [studentName, setStudentName] = useState(settings.studentName || 'Francisco');
+  const [academicYear, setAcademicYear] = useState(settings.academicYear || '2026/2027');
+  const [studentClass, setStudentClass] = useState(settings.studentClass || '9º B');
+  const [schoolName, setSchoolName] = useState(settings.schoolName || 'Escola Básica António Gedeão');
+  const [allowedEmails, setAllowedEmails] = useState<string[]>(
+    settings.allowedEmails && settings.allowedEmails.length > 0
+      ? settings.allowedEmails
+      : ['meiraxx@gmail.com']
+  );
+  const [newEmailInput, setNewEmailInput] = useState('');
+  const [newYearInput, setNewYearInput] = useState('');
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [academicYearSaved, setAcademicYearSaved] = useState(false);
+  const [allowlistSaved, setAllowlistSaved] = useState(false);
+
+  // Available academic years
+  const availableYears = Array.from(
+    new Set([
+      '2024/2025',
+      '2025/2026',
+      '2026/2027',
+      '2027/2028',
+      '2028/2029',
+      academicYear,
+    ])
+  ).sort();
 
   // Collect all tasks that have check-ins
   const tasksWithCheckIn = tasks.filter((t) => t.checkIn);
@@ -101,6 +131,56 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
     });
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 3000);
+  };
+
+  const handleSaveAcademicYear = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdateSettings({
+      ...settings,
+      studentName: studentName.trim() || 'Francisco',
+      academicYear: academicYear.trim() || '2026/2027',
+      studentClass: studentClass.trim() || '9º B',
+      schoolName: schoolName.trim() || 'Escola Básica António Gedeão',
+    });
+    setAcademicYearSaved(true);
+    setTimeout(() => setAcademicYearSaved(false), 3000);
+  };
+
+  const handleAddYear = () => {
+    if (newYearInput.trim()) {
+      setAcademicYear(newYearInput.trim());
+      setNewYearInput('');
+    }
+  };
+
+  const handleAddAllowedEmail = () => {
+    const trimmed = newEmailInput.trim().toLowerCase();
+    if (trimmed && !allowedEmails.includes(trimmed)) {
+      const updated = [...allowedEmails, trimmed];
+      setAllowedEmails(updated);
+      setNewEmailInput('');
+      onUpdateSettings({
+        ...settings,
+        allowedEmails: updated,
+      });
+      setAllowlistSaved(true);
+      setTimeout(() => setAllowlistSaved(false), 3000);
+    }
+  };
+
+  const handleRemoveAllowedEmail = (emailToRemove: string) => {
+    if (allowedEmails.length <= 1) {
+      alert('Tem de existir pelo menos um email autorizado.');
+      return;
+    }
+    const updated = allowedEmails.filter((em) => em !== emailToRemove);
+    setAllowedEmails(updated);
+    onUpdateSettings({
+      ...settings,
+      allowedEmails: updated,
+    });
+    setAllowlistSaved(true);
+    setTimeout(() => setAllowlistSaved(false), 3000);
   };
 
   const handleFileImportChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -267,6 +347,204 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
               <p className="text-xs font-bold text-emerald-700 bg-emerald-100/70 p-2 rounded-lg mt-3 flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Limiares atualizados com sucesso! Os cartões de testes e TPCs refletem agora estes valores.</span>
+              </p>
+            )}
+          </div>
+
+          {/* Section 1B: Reutilização do Portal & Novo Ano Letivo / Calendário */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-red-600" />
+                <span>Reutilização do Portal • Ano Letivo & Identificação</span>
+              </h3>
+              <span className="text-[11px] font-bold bg-red-50 text-red-700 border border-red-200 px-2.5 py-0.5 rounded-full">
+                {academicYear}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">
+              Podes adicionar um novo ano escolar a qualquer momento (ex: 2026/2027, 2027/2028), alterar o nome do aluno, turma e escola para reutilizar a plataforma ano após ano.
+            </p>
+
+            <form onSubmit={handleSaveAcademicYear} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                    <UserIcon className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Nome do Aluno</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={studentName}
+                    onChange={(e) => setStudentName(e.target.value)}
+                    placeholder="Ex: Francisco"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Ano Letivo Ativo</span>
+                  </label>
+                  <select
+                    value={academicYear}
+                    onChange={(e) => setAcademicYear(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-red-500"
+                  >
+                    {availableYears.map((yr) => (
+                      <option key={yr} value={yr}>
+                        {yr} {yr === '2026/2027' ? '(Ano Atual)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                    <School className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Turma / Ano</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={studentClass}
+                    onChange={(e) => setStudentClass(e.target.value)}
+                    placeholder="Ex: 9º B ou 10º A"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                    <School className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Nome da Escola</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={schoolName}
+                    onChange={(e) => setSchoolName(e.target.value)}
+                    placeholder="Ex: Escola Básica António Gedeão"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+              </div>
+
+              {/* Add custom year input */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-700">Criar Novo Ano Escolar:</span>
+                  <input
+                    type="text"
+                    value={newYearInput}
+                    onChange={(e) => setNewYearInput(e.target.value)}
+                    placeholder="Ex: 2027/2028"
+                    className="w-32 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddYear}
+                    disabled={!newYearInput.trim()}
+                    className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Adicionar</span>
+                  </button>
+                </div>
+
+                <button
+                  type="submit"
+                  className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-4 py-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow-xs"
+                >
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Gravar Configuração do Ano Letivo</span>
+                </button>
+              </div>
+            </form>
+
+            {academicYearSaved && (
+              <p className="text-xs font-bold text-emerald-700 bg-emerald-100/70 p-2 rounded-lg flex items-center gap-1.5 animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Dados do ano letivo e aluno gravados com sucesso!</span>
+              </p>
+            )}
+          </div>
+
+          {/* Section 1C: Controlo de Acesso & Utilizadores Autorizados (Allowlist) */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-red-600" />
+                <span>Controlo de Acesso e Contas Autorizadas</span>
+              </h3>
+              <span className="text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                {allowedEmails.length} {allowedEmails.length === 1 ? 'conta autorizada' : 'contas autorizadas'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">
+              Apenas os emails indicados nesta lista conseguem aceder à plataforma. Qualquer outro utilizador Google que tente aceder será bloqueado.
+            </p>
+
+            {/* List of current authorized emails */}
+            <div className="space-y-2">
+              {allowedEmails.map((email) => (
+                <div
+                  key={email}
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800"
+                >
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-red-600" />
+                    <span>{email}</span>
+                    {email === 'meiraxx@gmail.com' && (
+                      <span className="text-[10px] font-bold bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
+                        Administrador Principal
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveAllowedEmail(email)}
+                    className="text-slate-400 hover:text-red-600 p-1 transition"
+                    title="Remover autorização"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Add new authorized email */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+              <div className="relative flex-1">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="email"
+                  value={newEmailInput}
+                  onChange={(e) => setNewEmailInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddAllowedEmail();
+                    }
+                  }}
+                  placeholder="Novo email a autorizar (ex: pai@gmail.com ou francisco@gmail.com)"
+                  className="w-full pl-9 pr-3 py-2 text-xs font-bold border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-500 bg-white"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleAddAllowedEmail}
+                disabled={!newEmailInput.trim()}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Autorizar Email</span>
+              </button>
+            </div>
+
+            {allowlistSaved && (
+              <p className="text-xs font-bold text-emerald-700 bg-emerald-100/70 p-2 rounded-lg flex items-center gap-1.5 animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Lista de acessos atualizada! Apenas estas contas têm permissão para aceder.</span>
               </p>
             )}
           </div>

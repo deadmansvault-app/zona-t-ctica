@@ -17,7 +17,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { User } from 'firebase/auth';
-import { CheckInAlert } from '../types';
+import { CheckInAlert, AppSettings } from '../types';
 import { SUBJECTS } from '../data/timetableData';
 import { requestBrowserNotificationPermission } from '../lib/sound';
 
@@ -26,11 +26,13 @@ interface NavbarProps {
   setActiveTab: (tab: 'dashboard' | 'calendario' | 'horario' | 'tarefas' | 'pais') => void;
   pendingCount: number;
   user: User | null;
+  settings?: AppSettings;
   alerts?: CheckInAlert[];
   isLoggingIn?: boolean;
   onLoginGoogle: () => void;
   onLogoutGoogle: () => void;
-  onOpenTeamsModal: () => void;
+  onOpenAiModal: () => void;
+  onOpenTeamsModal?: () => void;
   onOpenAddTask: () => void;
   onViewPhoto?: (photoUrl: string, title: string) => void;
 }
@@ -40,10 +42,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
   pendingCount,
   user,
+  settings,
   alerts = [],
   isLoggingIn = false,
   onLoginGoogle,
   onLogoutGoogle,
+  onOpenAiModal,
   onOpenTeamsModal,
   onOpenAddTask,
   onViewPhoto,
@@ -81,17 +85,22 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-red-600 to-red-800 text-white flex items-center justify-center shadow-md shadow-red-200 border border-red-500 relative flex-shrink-0">
               <span className="font-extrabold text-sm sm:text-base tracking-tighter">SLB</span>
               <span className="absolute -bottom-1 -right-1 text-[10px] bg-amber-400 text-slate-950 font-bold px-1 rounded-full border border-white">
-                9ºB
+                {settings?.studentClass || '9ºB'}
               </span>
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-base sm:text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-1.5">
-                  Foco Escolar <span className="text-red-600 font-black">9º B</span>
+                  Foco Escolar <span className="text-red-600 font-black">{settings?.studentClass || '9º B'}</span>
                 </h1>
                 <span className="hidden md:inline-flex text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full">
-                  EB António Gedeão
+                  {settings?.schoolName ? settings.schoolName.replace('Escola Básica ', 'EB ') : 'EB António Gedeão'}
                 </span>
+                {settings?.academicYear && (
+                  <span className="hidden lg:inline-flex text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md">
+                    {settings.academicYear}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500 capitalize flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -223,7 +232,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <CheckCircle2 className="w-8 h-8 mx-auto text-slate-300 mb-1.5" />
                         <p className="font-semibold text-slate-600">Ainda não há check-ins recentes</p>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          Quando o Afonso submeter a foto de um TPC ou trabalho, todos recebem o alerta aqui.
+                          Quando o Francisco submeter a foto de um TPC ou trabalho, todos recebem o alerta aqui.
                         </p>
                       </div>
                     ) : (
@@ -241,7 +250,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         const waText = encodeURIComponent(
                           `✅ *Check-in Concluído (Foco 9º B)*\n` +
                             `📚 *${sub.name}*: "${al.taskTitle}"\n` +
-                            `👤 Aluno: ${al.authorName || 'Afonso'}\n` +
+                            `👤 Aluno: ${al.authorName || 'Francisco'}\n` +
                             `🕒 Hora: ${timeStr} (${dateStr})\n` +
                             `📸 Foto confirmada!`
                         );
@@ -293,7 +302,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                               </p>
 
                               <p className="text-[11px] text-slate-500 truncate">
-                                Check-in concluído por {al.authorName || 'Afonso'}
+                                Check-in concluído por {al.authorName || 'Francisco'}
                               </p>
 
                               <div className="flex items-center gap-2 mt-1.5">
@@ -344,13 +353,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
 
             <button
-              id="btn-sync-teams"
-              onClick={onOpenTeamsModal}
-              className="hidden lg:flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition-colors border border-slate-200"
-              title="Informação sobre Sincronização com Microsoft Teams e Escola"
+              id="btn-ai-assistant"
+              onClick={onOpenAiModal}
+              className="flex items-center gap-1 sm:gap-1.5 text-xs font-black text-amber-950 bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 hover:from-amber-300 hover:to-amber-200 px-2.5 sm:px-3 py-2 rounded-xl transition-all border border-amber-300 shadow-2xs active:scale-95"
+              title="Assistente AI: Criar TPC, Teste ou Trabalho de Grupo por texto"
             >
-              <Sparkles className="w-3.5 h-3.5 text-red-600" />
-              <span>Teams</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-700 animate-pulse" />
+              <span className="tracking-wide">AI</span>
             </button>
 
             <button

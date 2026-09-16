@@ -172,8 +172,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   greenDaysThreshold: 5, // > 5 dias: Verde
   yellowDaysThreshold: 3, // 3 a 5 dias: Amarelo
   parentPin: '1904', // Ano de fundação do Glorioso SLB
-  studentName: 'Afonso',
+  studentName: 'Francisco',
   favoriteTeam: 'Benfica',
+  academicYear: '2026/2027',
+  availableAcademicYears: ['2025/2026', '2026/2027', '2027/2028', '2028/2029'],
+  schoolName: 'Escola Básica António Gedeão',
+  studentClass: '9º B',
+  allowedEmails: ['meiraxx@gmail.com'],
 };
 
 // Initial realistic starter tasks (using 2026-09-14 as reference)
@@ -185,6 +190,7 @@ export const INITIAL_TASKS: SchoolTask[] = [
     type: 'tpc',
     description: 'Resolver os exercícios 3, 4 e 5 da página 24 do caderno de atividades.',
     dueDate: '2026-09-15', // Terça-feira (amanhã)
+    academicYear: '2026/2027',
     studyPlanDaysBefore: 1,
     createdAt: '2026-09-14T08:00:00Z',
   },
@@ -195,6 +201,7 @@ export const INITIAL_TASKS: SchoolTask[] = [
     type: 'tpc',
     description: 'Escrever texto de 8 a 10 linhas no caderno a descrever a rua ou o bairro em francês.',
     dueDate: '2026-09-16', // Quarta-feira
+    academicYear: '2026/2027',
     studyPlanDaysBefore: 2,
     createdAt: '2026-09-14T08:30:00Z',
   },
@@ -205,6 +212,7 @@ export const INITIAL_TASKS: SchoolTask[] = [
     type: 'teste',
     description: 'Matéria: Estrutura interna da Terra e Tectónica de Placas (páginas 12 a 45).',
     dueDate: '2026-09-21', // Próxima segunda (7 dias - Verde)
+    academicYear: '2026/2027',
     studyPlanDaysBefore: 5,
     studySessions: [
       {
@@ -238,6 +246,7 @@ export const INITIAL_TASKS: SchoolTask[] = [
     type: 'teste',
     description: 'Acerto de equações químicas e conservação da massa.',
     dueDate: '2026-09-18', // Sexta-feira (4 dias - Amarelo)
+    academicYear: '2026/2027',
     studyPlanDaysBefore: 3,
     studySessions: [
       {

@@ -8,7 +8,7 @@ import { ParentHistoryView } from './components/ParentHistoryView';
 import { CheckInModal } from './components/CheckInModal';
 import { AddTaskModal } from './components/AddTaskModal';
 import { EditTaskModal } from './components/EditTaskModal';
-import { TeamsSyncModal } from './components/TeamsSyncModal';
+import { AiAssistantModal } from './components/AiAssistantModal';
 import { CheckInAlertBanner } from './components/CheckInAlertBanner';
 import { PhotoViewerModal } from './components/PhotoViewerModal';
 import { CloudAuthModal } from './components/CloudAuthModal';
@@ -69,7 +69,7 @@ export default function App() {
   const [editingTask, setEditingTask] = useState<SchoolTask | null>(null);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [addTaskInitialDate, setAddTaskInitialDate] = useState<string | undefined>(undefined);
-  const [isTeamsSyncOpen, setIsTeamsSyncOpen] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [cloudAuthError, setCloudAuthError] = useState<FirebaseAuthErrorInfo | null>(null);
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
@@ -180,7 +180,7 @@ export default function App() {
       playAlertChime();
       sendBrowserNotification(
         'Check-in Concluído! (Foco 9º B)',
-        `Check-in de ${incomingAlert.taskTitle} concluído por ${incomingAlert.authorName || 'Afonso'}`
+        `Check-in de ${incomingAlert.taskTitle} concluído por ${incomingAlert.authorName || 'Francisco'}`
       );
     });
 
@@ -295,7 +295,7 @@ export default function App() {
       taskType: checkInTask.type,
       message: `Check-in: ${checkInTask.title} concluído!`,
       timestamp: record.timestamp,
-      authorName: settings.studentName || 'Afonso',
+      authorName: settings.studentName || 'Francisco',
       photoDataUrl: record.photoDataUrl,
     };
 
@@ -304,7 +304,7 @@ export default function App() {
     playAlertChime();
     sendBrowserNotification(
       'Check-in Concluído! (Foco 9º B)',
-      `${settings.studentName || 'O Afonso'} concluiu ${checkInTask.title}!`
+      `${settings.studentName || 'O Francisco'} concluiu ${checkInTask.title}!`
     );
     await broadcastCheckInAlert(alertData);
   };
@@ -398,7 +398,7 @@ export default function App() {
           />
         </div>
         <footer className="border-t border-slate-200 bg-white py-3.5 px-4 text-center text-xs text-slate-500">
-          <p>Foco 9º B • Turma do Afonso • Escola Básica António Gedeão • Acesso Reservado</p>
+          <p>Foco 9º B • Turma do Francisco • Escola Básica António Gedeão • Acesso Reservado</p>
         </footer>
       </div>
     );
@@ -416,7 +416,7 @@ export default function App() {
         isLoggingIn={isLoggingIn}
         onLoginGoogle={handleLoginGoogle}
         onLogoutGoogle={handleLogoutGoogle}
-        onOpenTeamsModal={() => setIsTeamsSyncOpen(true)}
+        onOpenAiModal={() => setIsAiModalOpen(true)}
         onOpenAddTask={() => {
           setAddTaskInitialDate(undefined);
           setIsAddTaskOpen(true);
@@ -516,7 +516,7 @@ export default function App() {
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-red-600" />
-            <span>Foco 9º B • Turma do Afonso • Escola Básica António Gedeão</span>
+            <span>Foco 9º B • Turma do Francisco • Escola Básica António Gedeão</span>
           </p>
           <p className="text-[11px] text-slate-400">
             Andebol: Segundas, Quartas e Sextas (20h-22h) • "E Pluribus Unum"
@@ -555,11 +555,12 @@ export default function App() {
         />
       )}
 
-      {isTeamsSyncOpen && (
-        <TeamsSyncModal
-          isOpen={isTeamsSyncOpen}
-          onClose={() => setIsTeamsSyncOpen(false)}
-          onImportTask={handleAddTask}
+      {isAiModalOpen && (
+        <AiAssistantModal
+          isOpen={isAiModalOpen}
+          onClose={() => setIsAiModalOpen(false)}
+          onAddTask={handleAddTask}
+          schoolName={settings.schoolName}
         />
       )}
 

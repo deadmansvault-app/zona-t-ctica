@@ -3,6 +3,7 @@ import { CheckCircle2, Clock, Camera, AlertTriangle, Calendar, BookOpen, Trash2,
 import { SchoolTask, AppSettings } from '../types';
 import { SUBJECTS } from '../data/timetableData';
 import { getUrgencyStatus } from '../lib/studyPlanner';
+import { getTaskGoogleCalendarUrl } from '../lib/googleCalendar';
 
 interface TaskCardProps {
   task: SchoolTask;
@@ -96,6 +97,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   <span className="hidden sm:inline text-[11px] font-bold">Editar</span>
                 </button>
               )}
+
+              <a
+                href={getTaskGoogleCalendarUrl(task, settings.schoolName)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-1 rounded-md transition-colors flex items-center gap-1"
+                title="Adicionar ao Google Agenda"
+              >
+                <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                <span className="hidden sm:inline text-[11px] font-bold text-blue-600">Google</span>
+              </a>
 
               <button
                 onClick={() => onDeleteTask(task.id)}

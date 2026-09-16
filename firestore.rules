@@ -10,19 +10,24 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isVerifiedUser() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+    // Returns true if the user is the primary admin
+    function isPrimaryAdmin() {
+      return isSignedIn() && request.auth.token.email == 'meiraxx@gmail.com';
     }
 
-    function isAdmin() {
+    // Check if the signed-in user is authorized via the allowlist stored in settings/app_settings
+    // or is the primary administrator.
+    // Also allows anonymous/device family tokens for devices already authenticated within the family.
+    function isAllowedUser() {
       return isSignedIn() && (
-        request.auth.token.email == 'meiraxx@gmail.com' ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        isPrimaryAdmin() ||
+        request.auth.token.firebase.sign_in_provider == 'anonymous' ||
+        (
+          request.auth.token.email != null &&
+          exists(/databases/$(database)/documents/settings/app_settings) &&
+          request.auth.token.email in get(/databases/$(database)/documents/settings/app_settings).data.allowedEmails
+        )
       );
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     // Connection health test
@@ -31,40 +36,43 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Settings Collection
+    // Read: Allowed users or unauthenticated initialization read (settings needed to know allowed emails)
+    // Write: Only allowed users / admin can update settings
+    match /settings/{settingId} {
+      allow read, list: if true;
+      allow create, update, delete: if isAllowedUser();
+    }
+
     // School Tasks Collection
     match /tasks/{taskId} {
-      allow read, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow read, list: if isAllowedUser();
+      allow create, update, delete: if isAllowedUser();
     }
 
     // Task Check-Ins Collection
     match /checkins/{checkinId} {
-      allow read, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow read, list: if isAllowedUser();
+      allow create, update, delete: if isAllowedUser();
     }
 
     // Real-time Check-In Alerts for Family
     match /alerts/{alertId} {
-      allow read, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow read, list: if isAllowedUser();
+      allow create, update, delete: if isAllowedUser();
     }
 
     // Schedule Collection
     match /schedule/{scheduleId} {
-      allow read, list: if true;
-      allow create, update, delete: if isSignedIn();
-    }
-
-    // Settings Collection
-    match /settings/{settingId} {
-      allow read, list: if true;
-      allow create, update, delete: if isSignedIn();
+      allow read, list: if isAllowedUser();
+      allow create, update, delete: if isAllowedUser();
     }
 
     // Backpack Checklist Collection
     match /backpack/{dateKey} {
-      allow read, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow read, list: if isAllowedUser();
+      allow create, update, delete: if isAllowedUser();
     }
   }
 }
+

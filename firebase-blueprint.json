@@ -2,7 +2,7 @@
   "entities": {
     "Task": {
       "title": "Task",
-      "description": "School task, test, homework, or study plan item for student 9º B",
+      "description": "School task, test, homework, or study plan item for student",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -12,6 +12,7 @@
         "description": { "type": "string", "maxLength": 2000 },
         "dueDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
         "dueTime": { "type": "string" },
+        "academicYear": { "type": "string", "maxLength": 20 },
         "studyPlanDaysBefore": { "type": "number" },
         "createdAt": { "type": "string" }
       },
@@ -33,7 +34,7 @@
     },
     "ScheduleItem": {
       "title": "ScheduleItem",
-      "description": "Timetable class slot for 9º B at EB António Gedeão",
+      "description": "Timetable class slot for student",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -41,6 +42,7 @@
         "timeIndex": { "type": "number" },
         "subjectCode": { "type": "string", "maxLength": 10 },
         "room": { "type": "string", "maxLength": 20 },
+        "academicYear": { "type": "string", "maxLength": 20 },
         "note": { "type": "string", "maxLength": 200 }
       },
       "required": ["id", "dayOfWeek", "timeIndex", "subjectCode", "room"]
@@ -54,7 +56,11 @@
         "yellowDaysThreshold": { "type": "number" },
         "parentPin": { "type": "string", "maxLength": 10 },
         "studentName": { "type": "string", "maxLength": 100 },
-        "favoriteTeam": { "type": "string", "maxLength": 50 }
+        "favoriteTeam": { "type": "string", "maxLength": 50 },
+        "academicYear": { "type": "string", "maxLength": 20 },
+        "schoolName": { "type": "string", "maxLength": 150 },
+        "studentClass": { "type": "string", "maxLength": 50 },
+        "allowedEmails": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["greenDaysThreshold", "yellowDaysThreshold", "parentPin", "studentName"]
     },

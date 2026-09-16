@@ -389,11 +389,18 @@ export async function loadSettings(): Promise<AppSettings> {
     try {
       const snap = await getDoc(doc(db, 'settings', 'app_settings'));
       if (snap.exists()) {
-        const cloudSet = snap.data() as AppSettings;
+        const cloudSet = snap.data() as Partial<AppSettings>;
+        const merged: AppSettings = {
+          ...DEFAULT_SETTINGS,
+          ...cloudSet,
+          // If the studentName in cloud is still the old Afonso, update to Francisco
+          studentName: cloudSet.studentName === 'Afonso' ? 'Francisco' : (cloudSet.studentName || DEFAULT_SETTINGS.studentName),
+          allowedEmails: cloudSet.allowedEmails && cloudSet.allowedEmails.length > 0 ? cloudSet.allowedEmails : DEFAULT_SETTINGS.allowedEmails,
+        };
         try {
-          localStorage.setItem(`${FALLBACK_PREFIX}settings`, JSON.stringify(cloudSet));
+          localStorage.setItem(`${FALLBACK_PREFIX}settings`, JSON.stringify(merged));
         } catch {}
-        return cloudSet;
+        return merged;
       }
     } catch (err) {
       console.warn('Erro ao carregar configurações do Firestore:', err);
@@ -408,7 +415,14 @@ export async function loadSettings(): Promise<AppSettings> {
       const request = store.get('app_settings');
       request.onsuccess = () => {
         if (request.result && request.result.value) {
-          resolve(request.result.value);
+          const val = request.result.value as Partial<AppSettings>;
+          const merged: AppSettings = {
+            ...DEFAULT_SETTINGS,
+            ...val,
+            studentName: val.studentName === 'Afonso' ? 'Francisco' : (val.studentName || DEFAULT_SETTINGS.studentName),
+            allowedEmails: val.allowedEmails && val.allowedEmails.length > 0 ? val.allowedEmails : DEFAULT_SETTINGS.allowedEmails,
+          };
+          resolve(merged);
         } else {
           resolve(DEFAULT_SETTINGS);
         }
@@ -418,7 +432,16 @@ export async function loadSettings(): Promise<AppSettings> {
   } catch {
     try {
       const raw = localStorage.getItem(`${FALLBACK_PREFIX}settings`);
-      return raw ? JSON.parse(raw) : DEFAULT_SETTINGS;
+      if (raw) {
+        const val = JSON.parse(raw) as Partial<AppSettings>;
+        return {
+          ...DEFAULT_SETTINGS,
+          ...val,
+          studentName: val.studentName === 'Afonso' ? 'Francisco' : (val.studentName || DEFAULT_SETTINGS.studentName),
+          allowedEmails: val.allowedEmails && val.allowedEmails.length > 0 ? val.allowedEmails : DEFAULT_SETTINGS.allowedEmails,
+        };
+      }
+      return DEFAULT_SETTINGS;
     } catch {
       return DEFAULT_SETTINGS;
     }

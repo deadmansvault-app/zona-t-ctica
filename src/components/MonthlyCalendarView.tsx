@@ -18,6 +18,11 @@ import {
 } from 'lucide-react';
 import { SchoolTask, ScheduleItem, AppSettings, TaskType } from '../types';
 import { SUBJECTS, TIME_SLOTS } from '../data/timetableData';
+import {
+  exportAllToIcs,
+  getTaskGoogleCalendarUrl,
+  getHandballGoogleCalendarUrl,
+} from '../lib/googleCalendar';
 
 interface MonthlyCalendarViewProps {
   tasks: SchoolTask[];
@@ -47,6 +52,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
     today.toISOString().split('T')[0]
   );
   const [filterType, setFilterType] = useState<'all' | 'teste' | 'tpc' | 'andebol'>('all');
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
 
   // Month navigation
   const handlePrevMonth = () => {
@@ -256,6 +262,16 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
             className="text-xs font-bold px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl transition-colors"
           >
             Hoje
+          </button>
+
+          <button
+            id="btn-google-calendar"
+            onClick={() => setShowGoogleModal(true)}
+            className="text-xs font-black px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs"
+            title="Sincronizar tarefas e testes com o Google Agenda"
+          >
+            <CalendarIcon className="w-3.5 h-3.5 text-blue-600" />
+            <span>Google Agenda</span>
           </button>
 
           <button
@@ -663,6 +679,16 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                               </button>
                             )}
 
+                            <a
+                              href={getTaskGoogleCalendarUrl(task, settings.schoolName)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Adicionar este evento ao Google Agenda"
+                            >
+                              <CalendarIcon className="w-3.5 h-3.5 text-blue-500" />
+                            </a>
+
                             <button
                               type="button"
                               onClick={() => onDeleteTask(task.id)}
@@ -769,6 +795,122 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Google Calendar Sync Modal */}
+      {showGoogleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col">
+            <div className="bg-blue-600 px-5 py-4 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="w-5 h-5 text-white" />
+                <h3 className="font-extrabold text-base sm:text-lg">
+                  Sincronização com o Google Agenda
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowGoogleModal(false)}
+                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                Podes exportar todos os testes, trabalhos de grupo, TPCs e treinos de andebol do Francisco para o teu <strong>Google Calendar</strong> pessoal ou de família.
+              </p>
+
+              <div className="space-y-2.5">
+                {/* 1-click .ICS Export */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    exportAllToIcs(tasks, settings.schoolName);
+                  }}
+                  className="w-full text-left p-3.5 rounded-xl border border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 transition-all flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black">
+                      ICS
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-slate-900 group-hover:text-blue-800">
+                        Descarregar Ficheiro de Calendário (.ics)
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Importa diretamente no Google Agenda, iPhone/Mac ou Outlook ({tasks.length} eventos).
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-blue-700 bg-white px-2.5 py-1 rounded-lg border border-blue-200 shadow-2xs">
+                    Descarregar
+                  </span>
+                </button>
+
+                {/* Open Google Calendar Web */}
+                <a
+                  href="https://calendar.google.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full p-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-all flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-slate-800 text-white flex items-center justify-center font-bold text-xs">
+                      Web
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-slate-900 group-hover:text-slate-800">
+                        Abrir Google Agenda no Navegador
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        calendar.google.com — Acede à tua conta Google
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-slate-700 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                    Abrir ↗
+                  </span>
+                </a>
+
+                {/* Add Handball to Google Calendar */}
+                <a
+                  href={getHandballGoogleCalendarUrl()}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full p-3.5 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100/70 transition-all flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center font-bold text-xs">
+                      SLB
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-amber-950">
+                        Adicionar Treino de Andebol ao Google Agenda
+                      </p>
+                      <p className="text-[11px] text-amber-800">
+                        Segundas, Quartas e Sextas das 20h00 às 22h00
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-amber-900 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-2xs">
+                    Criar no Google ↗
+                  </span>
+                </a>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowGoogleModal(false)}
+                  className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
