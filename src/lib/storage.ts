@@ -23,10 +23,17 @@ const DB_NAME = 'FocoEscolar9B_DB';
 const DB_VERSION = 2;
 const FALLBACK_PREFIX = 'foco_9b_';
 
+export function formatLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function getTomorrowDateStr(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().split('T')[0];
+  return formatLocalDate(d);
 }
 
 // Helper to remove undefined values for Firestore serialization
@@ -396,6 +403,7 @@ export async function loadSettings(): Promise<AppSettings> {
           // If the studentName in cloud is still the old Afonso, update to Francisco
           studentName: cloudSet.studentName === 'Afonso' ? 'Francisco' : (cloudSet.studentName || DEFAULT_SETTINGS.studentName),
           allowedEmails: cloudSet.allowedEmails && cloudSet.allowedEmails.length > 0 ? cloudSet.allowedEmails : DEFAULT_SETTINGS.allowedEmails,
+          googleCalendarId: cloudSet.googleCalendarId || DEFAULT_SETTINGS.googleCalendarId,
         };
         try {
           localStorage.setItem(`${FALLBACK_PREFIX}settings`, JSON.stringify(merged));

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { SchoolTask, TaskType } from '../types';
 import { SUBJECTS } from '../data/timetableData';
+import { formatLocalDate } from '../lib/storage';
 import { generateIcsCalendar, downloadIcsFile } from '../lib/googleCalendar';
 
 interface AiAssistantModalProps {
@@ -86,14 +87,14 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
       studySessions = [
         {
           id: `s-ai-${Date.now()}-1`,
-          date: s1.toISOString().split('T')[0],
+          date: formatLocalDate(s1),
           timeRange: '17:30 - 18:30',
           topic: `Revisão inicial da matéria de ${SUBJECTS[detectedSubject]?.name || detectedSubject}`,
           completed: false,
         },
         {
           id: `s-ai-${Date.now()}-2`,
-          date: s2.toISOString().split('T')[0],
+          date: formatLocalDate(s2),
           timeRange: '18:00 - 19:15',
           topic: 'Exercícios práticos e simulador de teste',
           completed: false,
@@ -107,14 +108,14 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
       studySessions = [
         {
           id: `s-ai-${Date.now()}-1`,
-          date: s1.toISOString().split('T')[0],
+          date: formatLocalDate(s1),
           timeRange: '17:00 - 18:00',
           topic: 'Fase 1: Pesquisa inicial e divisão de tarefas do grupo',
           completed: false,
         },
         {
           id: `s-ai-${Date.now()}-2`,
-          date: s2.toISOString().split('T')[0],
+          date: formatLocalDate(s2),
           timeRange: '17:30 - 19:00',
           topic: 'Fase 2: Redação final e montagem dos slides',
           completed: false,
@@ -128,7 +129,7 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
       subjectCode: detectedSubject,
       type: detectedType,
       description: pastedText.trim(),
-      dueDate: due.toISOString().split('T')[0],
+      dueDate: formatLocalDate(due),
       academicYear: settings?.academicYear || '2026/2027',
       studyPlanDaysBefore: detectedType === 'teste' ? 5 : detectedType === 'trabalho' ? 7 : undefined,
       studySessions,
@@ -152,7 +153,7 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
     const due = groupDueDate || (() => {
       const d = new Date();
       d.setDate(d.getDate() + 14);
-      return d.toISOString().split('T')[0];
+      return formatLocalDate(d);
     })();
 
     const members = groupMembers.split(',').map((m) => m.trim()).filter(Boolean);
@@ -169,7 +170,7 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
       stepDate.setDate(stepDate.getDate() - (steps.length - idx) * 3);
       return {
         id: `s-group-${Date.now()}-${idx}`,
-        date: stepDate.toISOString().split('T')[0],
+        date: formatLocalDate(stepDate),
         timeRange: '17:30 - 18:45',
         topic: `Etapa ${idx + 1}: ${st}`,
         completed: false,

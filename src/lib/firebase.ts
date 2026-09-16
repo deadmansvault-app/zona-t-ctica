@@ -27,15 +27,34 @@ import firebaseConfig from '../../firebase-applet-config.json';
 const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore (works with '(default)', empty, or custom databaseId)
+const customDbId = (firebaseConfig as Record<string, any>).firestoreDatabaseId;
 export const db =
-  firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
-    ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+  customDbId && customDbId !== '(default)'
+    ? getFirestore(app, customDbId)
     : getFirestore(app);
 export const auth = getAuth(app);
+
+// Workspace integration scopes
+export const SCOPES = [
+  'https://www.googleapis.com/auth/calendar.events',
+  'https://www.googleapis.com/auth/calendar.readonly',
+];
 
 // Authentication helpers
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
+SCOPES.forEach((scope) => googleProvider.addScope(scope));
+
+// In-memory token cache for Google Workspace APIs (per security guidelines, never in localStorage)
+let cachedAccessToken: string | null = null;
+
+export function getCachedGoogleAccessToken(): string | null {
+  return cachedAccessToken;
+}
+
+export function setCachedGoogleAccessToken(token: string | null): void {
+  cachedAccessToken = token;
+}
 
 export interface FirebaseAuthErrorInfo {
   code: string;
@@ -61,6 +80,10 @@ export function getCurrentDomainAuthInfo(): {
 export async function signInWithGoogle(): Promise<User | null> {
   try {
     const result = await signInWithPopup(auth, googleProvider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (credential?.accessToken) {
+      cachedAccessToken = credential.accessToken;
+    }
     return result.user;
   } catch (error: any) {
     const errorCode = error?.code || '';
@@ -171,6 +194,7 @@ export function translateAuthError(error: any): string {
 
 export async function logOut(): Promise<void> {
   try {
+    cachedAccessToken = null;
     await firebaseSignOut(auth);
   } catch (error: any) {
     console.warn('Aviso ao terminar sessão:', error?.message || error);

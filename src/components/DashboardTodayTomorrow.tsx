@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { SchoolTask, ScheduleItem, AppSettings } from '../types';
 import { SUBJECTS, TIME_SLOTS, HANDBALL_TRAINING } from '../data/timetableData';
+import { formatLocalDate } from '../lib/storage';
 import { TaskCard } from './TaskCard';
 import { MbappeCorner } from './MbappeCorner';
 
@@ -53,10 +54,10 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
   const tomorrowDayOfWeek = (todayDayOfWeek + 1) % 7;
 
   // Normalized ISO strings (YYYY-MM-DD)
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = formatLocalDate(now);
   const tomorrowDate = new Date(now);
   tomorrowDate.setDate(now.getDate() + 1);
-  const tomorrowStr = tomorrowDate.toISOString().split('T')[0];
+  const tomorrowStr = formatLocalDate(tomorrowDate);
 
   // If weekend, map to next school day (Mon = 1)
   const effectiveTodayScheduleDay = todayDayOfWeek === 0 || todayDayOfWeek === 6 ? 1 : todayDayOfWeek;

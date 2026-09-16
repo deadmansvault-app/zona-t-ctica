@@ -263,6 +263,14 @@ export default function App() {
     await saveTask(newTask);
   };
 
+  const handleSyncTasks = async (newTasks: SchoolTask[]) => {
+    setTasks(newTasks);
+    // Persist each task into storage / Firestore
+    for (const t of newTasks) {
+      await saveTask(t);
+    }
+  };
+
   const handleEditTask = async (updatedTask: SchoolTask) => {
     const updated = tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t));
     setTasks(updated);
@@ -463,6 +471,10 @@ export default function App() {
             onEditTask={(task) => setEditingTask(task)}
             onToggleSession={handleToggleSession}
             onOpenAddTaskWithDate={handleOpenAddTaskWithDate}
+            onAddTask={handleAddTask}
+            onUpdateSettings={handleUpdateSettings}
+            onSyncTasks={handleSyncTasks}
+            currentUser={user}
           />
         )}
 

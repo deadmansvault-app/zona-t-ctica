@@ -3,6 +3,13 @@ import { X, Plus, Calendar, Sparkles, BookOpen, Clock, Dumbbell, Bot, Users, Wan
 import { SchoolTask, TaskType } from '../types';
 import { SUBJECTS } from '../data/timetableData';
 import { generateStudyPlan } from '../lib/studyPlanner';
+import { formatLocalDate, getTomorrowDateStr } from '../lib/storage';
+import {
+  detectSubjectFromText,
+  detectTypeFromText,
+  extractGroupMembers,
+  extractDateFromText,
+} from '../lib/calendarAutomation';
 
 interface AddTaskModalProps {
   isOpen: boolean;
@@ -31,9 +38,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
   const [aiSuccessMsg, setAiSuccessMsg] = useState('');
 
   // Default due date: initialDueDate or tomorrow
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const defaultDue = initialDueDate || tomorrow.toISOString().split('T')[0];
+  const defaultDue = initialDueDate || getTomorrowDateStr();
   const [dueDate, setDueDate] = useState(defaultDue);
 
   React.useEffect(() => {
@@ -52,35 +57,37 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
   const handleApplyAi = () => {
     if (!aiPromptText.trim()) return;
 
-    const upper = aiPromptText.toUpperCase();
-
     // Detect subject
-    let matchedSub = subjectCode;
-    for (const code of Object.keys(SUBJECTS)) {
-      if (upper.includes(code) || upper.includes(SUBJECTS[code].name.toUpperCase())) {
-        matchedSub = code;
-        break;
-      }
-    }
-    setSubjectCode(matchedSub);
+    const detectedSub = detectSubjectFromText(aiPromptText);
+    setSubjectCode(detectedSub.code);
 
     // Detect type
-    if (upper.includes('GRUPO') || upper.includes('TRABALHO') || upper.includes('PROJETO')) {
-      setType('trabalho');
+    const detectedT = detectTypeFromText(aiPromptText);
+    setType(detectedT.type);
+    if (detectedT.type === 'teste' || detectedT.type === 'trabalho') {
       setGeneratePlan(true);
-    } else if (upper.includes('TESTE') || upper.includes('AVALIAÇÃO') || upper.includes('SUMATIVA')) {
-      setType('teste');
-      setGeneratePlan(true);
-    } else {
-      setType('tpc');
+    }
+
+    // Detect group members if trabalho
+    if (detectedT.type === 'trabalho') {
+      const members = extractGroupMembers(aiPromptText);
+      if (members.length > 0) {
+        setGroupMembers(members.join(', '));
+      }
+    }
+
+    // Detect date if present in prompt
+    const dateInText = extractDateFromText(aiPromptText, dueDate);
+    if (dateInText) {
+      setDueDate(dateInText);
     }
 
     // Set title and description
-    setTitle(aiPromptText.slice(0, 60).trim());
+    setTitle(aiPromptText.split('\n')[0].slice(0, 60).trim());
     setDescription(aiPromptText.trim());
 
-    setAiSuccessMsg('✨ Campos preenchidos automaticamente com AI!');
-    setTimeout(() => setAiSuccessMsg(''), 3000);
+    setAiSuccessMsg(`✨ Automação aplicada: [${detectedT.type.toUpperCase()}] ${detectedSub.matchName}!`);
+    setTimeout(() => setAiSuccessMsg(''), 3500);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -104,7 +111,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
         pDate.setDate(pDate.getDate() - (phases.length - idx) * 2);
         return {
           id: `session-group-${Date.now()}-${idx}`,
-          date: pDate.toISOString().split('T')[0],
+          date: formatLocalDate(pDate),
           timeRange: '17:30 - 18:30',
           topic: phase,
           completed: false,

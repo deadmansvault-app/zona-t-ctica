@@ -18,11 +18,16 @@ import {
 } from 'lucide-react';
 import { SchoolTask, ScheduleItem, AppSettings, TaskType } from '../types';
 import { SUBJECTS, TIME_SLOTS } from '../data/timetableData';
+import { formatLocalDate } from '../lib/storage';
 import {
   exportAllToIcs,
   getTaskGoogleCalendarUrl,
   getHandballGoogleCalendarUrl,
 } from '../lib/googleCalendar';
+import { CalendarEventAutomationModal } from './CalendarEventAutomationModal';
+import { GoogleCalendarSyncModal } from './GoogleCalendarSyncModal';
+import { parseIcsToAutomatedTasks } from '../lib/calendarAutomation';
+import { User } from 'firebase/auth';
 
 interface MonthlyCalendarViewProps {
   tasks: SchoolTask[];
@@ -33,6 +38,10 @@ interface MonthlyCalendarViewProps {
   onEditTask?: (task: SchoolTask) => void;
   onToggleSession: (taskId: string, sessionId: string) => void;
   onOpenAddTaskWithDate: (dateStr: string) => void;
+  onAddTask?: (task: SchoolTask) => Promise<void> | void;
+  onUpdateSettings?: (settings: AppSettings) => Promise<void> | void;
+  onSyncTasks?: (tasks: SchoolTask[]) => Promise<void> | void;
+  currentUser?: User | null;
 }
 
 export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
@@ -44,15 +53,22 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   onEditTask,
   onToggleSession,
   onOpenAddTaskWithDate,
+  onAddTask,
+  onUpdateSettings,
+  onSyncTasks,
+  currentUser = null,
 }) => {
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth()); // 0-indexed
   const [selectedDateStr, setSelectedDateStr] = useState<string>(
-    today.toISOString().split('T')[0]
+    formatLocalDate(today)
   );
   const [filterType, setFilterType] = useState<'all' | 'teste' | 'tpc' | 'andebol'>('all');
   const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [showAutoModal, setShowAutoModal] = useState(false);
+  const [icsTextInput, setIcsTextInput] = useState('');
+  const [importStatusMsg, setImportStatusMsg] = useState<string | null>(null);
 
   // Month navigation
   const handlePrevMonth = () => {
@@ -77,7 +93,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
     const now = new Date();
     setCurrentYear(now.getFullYear());
     setCurrentMonth(now.getMonth());
-    setSelectedDateStr(now.toISOString().split('T')[0]);
+    setSelectedDateStr(formatLocalDate(now));
   };
 
   // Month label in Portuguese
@@ -107,7 +123,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
     for (let i = startingDayIndex - 1; i >= 0; i--) {
       const dayNum = prevMonthDaysCount - i;
       const d = new Date(currentYear, currentMonth - 1, dayNum);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = formatLocalDate(d);
       const dow = (d.getDay() + 6) % 7;
       days.push({ dateStr, dayNum, isCurrentMonth: false, dayOfWeek: dow });
     }
@@ -115,11 +131,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
     // Fill current month days
     for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
       const d = new Date(currentYear, currentMonth, dayNum);
-      // Format as YYYY-MM-DD safely with local year and month
-      const yStr = currentYear;
-      const mStr = String(currentMonth + 1).padStart(2, '0');
-      const dStr = String(dayNum).padStart(2, '0');
-      const dateStr = `${yStr}-${mStr}-${dStr}`;
+      const dateStr = formatLocalDate(d);
       const dow = (d.getDay() + 6) % 7;
       days.push({ dateStr, dayNum, isCurrentMonth: true, dayOfWeek: dow });
     }
@@ -128,7 +140,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
     const remainingCells = (7 - (days.length % 7)) % 7;
     for (let dayNum = 1; dayNum <= remainingCells; dayNum++) {
       const d = new Date(currentYear, currentMonth + 1, dayNum);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = formatLocalDate(d);
       const dow = (d.getDay() + 6) % 7;
       days.push({ dateStr, dayNum, isCurrentMonth: false, dayOfWeek: dow });
     }
@@ -185,7 +197,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
     return dayOfWeek === 0 || dayOfWeek === 2 || dayOfWeek === 4;
   };
 
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = formatLocalDate(today);
 
   // Selected date details
   const selectedDateObj = useMemo(() => {
@@ -267,21 +279,34 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
           <button
             id="btn-google-calendar"
             onClick={() => setShowGoogleModal(true)}
-            className="text-xs font-black px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs"
-            title="Sincronizar tarefas e testes com o Google Agenda"
+            className="text-xs font-black px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+            title={`Sincronizar com Google Agenda (${settings.googleCalendarId || 'Configurado'})`}
           >
             <CalendarIcon className="w-3.5 h-3.5 text-blue-600" />
-            <span>Google Agenda</span>
+            <span className="hidden sm:inline">Google Agenda</span>
+            <span className="sm:hidden">Google</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Sincronização Ativa" />
+          </button>
+
+          <button
+            id="btn-calendar-auto-event"
+            onClick={() => setShowAutoModal(true)}
+            className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 active:scale-95 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl shadow-xs shadow-red-200 transition-all flex items-center gap-1.5"
+            title="Adicionar evento no calendário com automação de teste, tpc ou trabalho"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-200 animate-pulse" />
+            <span className="hidden sm:inline">+ Novo Evento (Auto)</span>
+            <span className="sm:hidden">+ Evento</span>
           </button>
 
           <button
             id="btn-add-task-cal"
             onClick={() => onOpenAddTaskWithDate(selectedDateStr)}
-            className="bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl shadow-xs shadow-red-200 transition-all flex items-center gap-1.5"
+            className="bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-800 font-extrabold text-xs px-3 py-2 rounded-xl border border-slate-300 transition-all flex items-center gap-1.5"
+            title="Adicionar tarefa com formulário manual completo"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Nova Tarefa</span>
-            <span className="sm:hidden">+</span>
+            <Plus className="w-3.5 h-3.5 text-slate-600" />
+            <span className="hidden md:inline">Manual</span>
           </button>
         </div>
       </div>
@@ -417,7 +442,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
 
           {/* Days Grid */}
           <div className="grid grid-cols-7 divide-x divide-y divide-slate-100 text-xs">
-            {calendarDays.map((cell) => {
+            {calendarDays.map((cell, cellIdx) => {
               const dayTasks = tasksByDate[cell.dateStr] || [];
               const daySessions = studySessionsByDate[cell.dateStr] || [];
               const isToday = cell.dateStr === todayStr;
@@ -436,7 +461,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
 
               return (
                 <div
-                  key={cell.dateStr}
+                  key={`cell-${cell.dateStr}-${cellIdx}`}
                   onClick={() => setSelectedDateStr(cell.dateStr)}
                   className={`min-h-[85px] sm:min-h-[105px] p-1.5 sm:p-2 cursor-pointer transition-all flex flex-col relative ${
                     !cell.isCurrentMonth
@@ -600,13 +625,24 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                   <BookOpen className="w-3.5 h-3.5 text-red-600" />
                   <span>Testes & TPCs para este dia ({selectedDateTasks.length})</span>
                 </h4>
-                <button
-                  onClick={() => onOpenAddTaskWithDate(selectedDateStr)}
-                  className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-0.5"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Adicionar</span>
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setShowAutoModal(true)}
+                    className="text-[11px] font-extrabold text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded-lg flex items-center gap-1 transition-colors border border-amber-300 shadow-2xs cursor-pointer"
+                    title="Adicionar evento neste dia com automação"
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-600" />
+                    <span>Auto</span>
+                  </button>
+                  <button
+                    onClick={() => onOpenAddTaskWithDate(selectedDateStr)}
+                    className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-0.5 px-1.5 py-1"
+                    title="Formulário manual"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Manual</span>
+                  </button>
+                </div>
               </div>
 
               {selectedDateTasks.length === 0 ? (
@@ -614,12 +650,15 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                   <p className="text-xs text-slate-500 font-medium">
                     Nenhum teste ou TPC com entrega marcada para este dia.
                   </p>
-                  <button
-                    onClick={() => onOpenAddTaskWithDate(selectedDateStr)}
-                    className="mt-2 text-xs font-bold text-red-600 hover:underline"
-                  >
-                    + Registar tarefa neste dia
-                  </button>
+                  <div className="mt-2.5 flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => setShowAutoModal(true)}
+                      className="text-xs font-extrabold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 px-3 py-1.5 rounded-xl shadow-xs shadow-red-200 flex items-center gap-1.5 transition-all"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                      <span>+ Novo Evento com Automação</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -796,120 +835,30 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
         </div>
       </div>
 
-      {/* Google Calendar Sync Modal */}
-      {showGoogleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col">
-            <div className="bg-blue-600 px-5 py-4 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CalendarIcon className="w-5 h-5 text-white" />
-                <h3 className="font-extrabold text-base sm:text-lg">
-                  Sincronização com o Google Agenda
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowGoogleModal(false)}
-                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10"
-              >
-                ✕
-              </button>
-            </div>
+      {/* Google Calendar Real-Time Sync Modal */}
+      <GoogleCalendarSyncModal
+        isOpen={showGoogleModal}
+        onClose={() => setShowGoogleModal(false)}
+        settings={settings}
+        onUpdateSettings={onUpdateSettings || (() => {})}
+        tasks={tasks}
+        onSyncTasks={onSyncTasks || (() => {})}
+        currentUser={currentUser}
+      />
 
-            <div className="p-5 space-y-4">
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Podes exportar todos os testes, trabalhos de grupo, TPCs e treinos de andebol do Francisco para o teu <strong>Google Calendar</strong> pessoal ou de família.
-              </p>
-
-              <div className="space-y-2.5">
-                {/* 1-click .ICS Export */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    exportAllToIcs(tasks, settings.schoolName);
-                  }}
-                  className="w-full text-left p-3.5 rounded-xl border border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 transition-all flex items-center justify-between group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black">
-                      ICS
-                    </div>
-                    <div>
-                      <p className="text-xs font-black text-slate-900 group-hover:text-blue-800">
-                        Descarregar Ficheiro de Calendário (.ics)
-                      </p>
-                      <p className="text-[11px] text-slate-500">
-                        Importa diretamente no Google Agenda, iPhone/Mac ou Outlook ({tasks.length} eventos).
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-bold text-blue-700 bg-white px-2.5 py-1 rounded-lg border border-blue-200 shadow-2xs">
-                    Descarregar
-                  </span>
-                </button>
-
-                {/* Open Google Calendar Web */}
-                <a
-                  href="https://calendar.google.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full p-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-all flex items-center justify-between group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-slate-800 text-white flex items-center justify-center font-bold text-xs">
-                      Web
-                    </div>
-                    <div>
-                      <p className="text-xs font-black text-slate-900 group-hover:text-slate-800">
-                        Abrir Google Agenda no Navegador
-                      </p>
-                      <p className="text-[11px] text-slate-500">
-                        calendar.google.com — Acede à tua conta Google
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-bold text-slate-700 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                    Abrir ↗
-                  </span>
-                </a>
-
-                {/* Add Handball to Google Calendar */}
-                <a
-                  href={getHandballGoogleCalendarUrl()}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full p-3.5 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100/70 transition-all flex items-center justify-between group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center font-bold text-xs">
-                      SLB
-                    </div>
-                    <div>
-                      <p className="text-xs font-black text-amber-950">
-                        Adicionar Treino de Andebol ao Google Agenda
-                      </p>
-                      <p className="text-[11px] text-amber-800">
-                        Segundas, Quartas e Sextas das 20h00 às 22h00
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-bold text-amber-900 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-2xs">
-                    Criar no Google ↗
-                  </span>
-                </a>
-              </div>
-
-              <div className="pt-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowGoogleModal(false)}
-                  className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all"
-                >
-                  Fechar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Automated Event Modal */}
+      {showAutoModal && onAddTask && (
+        <CalendarEventAutomationModal
+          isOpen={showAutoModal}
+          onClose={() => setShowAutoModal(false)}
+          initialDate={selectedDateStr}
+          academicYear={settings.academicYear}
+          onAddTask={onAddTask}
+          onOpenFullForm={(prefill) => {
+            setShowAutoModal(false);
+            onOpenAddTaskWithDate(prefill.date || selectedDateStr);
+          }}
+        />
       )}
     </div>
   );

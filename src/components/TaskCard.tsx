@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle2, Clock, Camera, AlertTriangle, Calendar, BookOpen, Trash2, Eye, ExternalLink, Pencil } from 'lucide-react';
+import { CheckCircle2, Clock, Camera, AlertTriangle, Calendar, BookOpen, Trash2, Eye, ExternalLink, Pencil, Users } from 'lucide-react';
 import { SchoolTask, AppSettings } from '../types';
 import { SUBJECTS } from '../data/timetableData';
 import { getUrgencyStatus } from '../lib/studyPlanner';
@@ -133,6 +133,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               <p className="text-xs sm:text-sm text-slate-600 mt-1.5 leading-relaxed pl-1">
                 {task.description}
               </p>
+            )}
+            {task.groupMembers && task.groupMembers.length > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-blue-800 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg mt-2 font-medium w-fit">
+                <Users className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span>Equipa: {task.groupMembers.join(', ')}</span>
+              </div>
             )}
           </div>
 
