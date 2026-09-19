@@ -19,7 +19,6 @@ import {
   AppSettings,
   CheckInRecord,
   CheckInAlert,
-  AppUser,
 } from './types';
 import { DEFAULT_SETTINGS } from './data/timetableData';
 import {
@@ -48,7 +47,6 @@ import {
   signInWithGoogle,
   signInFamilySync,
   logOut,
-  getLocalUserSession,
   FirebaseAuthErrorInfo,
   getCurrentDomainAuthInfo,
 } from './lib/firebase';
@@ -61,7 +59,7 @@ export default function App() {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [backpackChecked, setBackpackChecked] = useState<string[]>([]);
-  const [user, setUser] = useState<User | AppUser | null>(() => getLocalUserSession());
+  const [user, setUser] = useState<User | null>(null);
   const [alerts, setAlerts] = useState<CheckInAlert[]>([]);
   const [currentAlert, setCurrentAlert] = useState<CheckInAlert | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<{ url: string; title: string } | null>(null);
@@ -80,18 +78,15 @@ export default function App() {
 
   const tomorrowDateStr = () => getTomorrowDateStr();
 
-  // Listen to Firebase Auth state & sync with active user
+  // Listen to Firebase Auth state
   useEffect(() => {
     let unsubTasks: (() => void) | null = null;
     let unsubBackpack: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
-      const local = getLocalUserSession();
-      const activeUser = currentUser || local;
-      setUser(activeUser);
+      setUser(currentUser);
       setIsAuthInitializing(false);
-
-      if (activeUser) {
+      if (currentUser) {
         const tDate = getTomorrowDateStr();
 
         // 1. Real-time tasks subscription from Firestore (even if empty)
@@ -198,7 +193,6 @@ export default function App() {
     try {
       const u = await signInWithGoogle();
       if (u) {
-        setUser(u);
         setIsCloudModalOpen(false);
         setCloudAuthError(null);
       }
@@ -232,7 +226,6 @@ export default function App() {
     try {
       const u = await signInFamilySync();
       if (u) {
-        setUser(u);
         setIsCloudModalOpen(false);
         setCloudAuthError(null);
       }
@@ -246,10 +239,8 @@ export default function App() {
   const handleLogoutGoogle = async () => {
     try {
       await logOut();
-      setUser(null);
     } catch (err: any) {
       console.warn('Saída de sessão não concluída:', err?.message || err);
-      setUser(null);
     }
   };
 
@@ -270,14 +261,6 @@ export default function App() {
     const updated = [newTask, ...tasks];
     setTasks(updated);
     await saveTask(newTask);
-  };
-
-  const handleSyncTasks = async (newTasks: SchoolTask[]) => {
-    setTasks(newTasks);
-    // Persist each task into storage / Firestore
-    for (const t of newTasks) {
-      await saveTask(t);
-    }
   };
 
   const handleEditTask = async (updatedTask: SchoolTask) => {
@@ -410,13 +393,8 @@ export default function App() {
         <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
           <LoginPage
             user={user}
-            settings={settings}
             onNavigateToDashboard={() => setActiveTab('dashboard')}
             onNavigateToParents={() => setActiveTab('pais')}
-            onUserAuthenticated={(authenticatedUser) => {
-              setUser(authenticatedUser);
-              setActiveTab('dashboard');
-            }}
           />
         </div>
         <footer className="border-t border-slate-200 bg-white py-3.5 px-4 text-center text-xs text-slate-500">
@@ -485,10 +463,6 @@ export default function App() {
             onEditTask={(task) => setEditingTask(task)}
             onToggleSession={handleToggleSession}
             onOpenAddTaskWithDate={handleOpenAddTaskWithDate}
-            onAddTask={handleAddTask}
-            onUpdateSettings={handleUpdateSettings}
-            onSyncTasks={handleSyncTasks}
-            currentUser={user}
           />
         )}
 

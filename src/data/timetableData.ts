@@ -179,8 +179,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   schoolName: 'Escola Básica António Gedeão',
   studentClass: '9º B',
   allowedEmails: ['meiraxx@gmail.com'],
-  googleCalendarId: '3fad003f0a2cb499176386bd47c51340ea4add46ea5d16693a2075cedb33a1b0@group.calendar.google.com',
-  googleCalendarAutoSync: true,
 };
 
 // Initial realistic starter tasks (using 2026-09-14 as reference)

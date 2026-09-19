@@ -1,5 +1,4 @@
 import { StudySession, AlertColor } from '../types';
-import { formatLocalDate } from './storage';
 
 /**
  * Calculates alert color based on days remaining:
@@ -102,7 +101,7 @@ export function generateStudyPlan(
       timeRange = '18:15 - 19:00';
     }
 
-    const isoDate = formatLocalDate(candidateDate);
+    const isoDate = candidateDate.toISOString().split('T')[0];
     const sessionIdx = sessions.length;
 
     sessions.unshift({

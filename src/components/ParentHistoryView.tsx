@@ -27,13 +27,13 @@ import {
   Trash2,
 } from 'lucide-react';
 import { User } from 'firebase/auth';
-import { SchoolTask, CheckInRecord, AppSettings, AppUser } from '../types';
+import { SchoolTask, CheckInRecord, AppSettings } from '../types';
 import { SUBJECTS } from '../data/timetableData';
 
 interface ParentHistoryViewProps {
   tasks: SchoolTask[];
   settings: AppSettings;
-  user: User | AppUser | null;
+  user: User | null;
   isLoggingIn?: boolean;
   onLoginGoogle: () => void;
   onLogoutGoogle: () => void;
@@ -84,10 +84,6 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [academicYearSaved, setAcademicYearSaved] = useState(false);
   const [allowlistSaved, setAllowlistSaved] = useState(false);
-  const [calendarIdInput, setCalendarIdInput] = useState(
-    settings.googleCalendarId || '3fad003f0a2cb499176386bd47c51340ea4add46ea5d16693a2075cedb33a1b0@group.calendar.google.com'
-  );
-  const [calendarSaved, setCalendarSaved] = useState(false);
 
   // Available academic years
   const availableYears = Array.from(
@@ -185,15 +181,6 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
     });
     setAllowlistSaved(true);
     setTimeout(() => setAllowlistSaved(false), 3000);
-  };
-
-  const handleSaveCalendarId = async () => {
-    await onUpdateSettings({
-      ...settings,
-      googleCalendarId: calendarIdInput.trim(),
-    });
-    setCalendarSaved(true);
-    setTimeout(() => setCalendarSaved(false), 3000);
   };
 
   const handleFileImportChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -560,66 +547,6 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
                 <span>Lista de acessos atualizada! Apenas estas contas têm permissão para aceder.</span>
               </p>
             )}
-          </div>
-
-          {/* Section 1.5: Google Calendar Sync Setup */}
-          <div className="bg-white rounded-2xl border border-blue-200 p-5 shadow-xs">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
-              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-blue-600" />
-                <span>Sincronização com Google Agenda da Turma</span>
-              </h3>
-              <a
-                href={`https://calendar.google.com/calendar/u/0/r?cid=${encodeURIComponent(calendarIdInput)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 hover:underline"
-              >
-                <span>Abrir no Google Agenda</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-            <p className="text-xs text-slate-500 mb-4">
-              O calendário configurado sincroniza testes, TPCs e horários letivos através da Google Calendar API oficial autorizada.
-            </p>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  ID do Google Calendar:
-                </label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={calendarIdInput}
-                    onChange={(e) => setCalendarIdInput(e.target.value)}
-                    className="flex-1 px-3 py-2 text-xs font-mono font-bold border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500 bg-white text-slate-800"
-                    placeholder="ex: 3fad003f...group.calendar.google.com"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSaveCalendarId}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Guardar ID</span>
-                  </button>
-                </div>
-              </div>
-
-              {settings.googleCalendarLastSync && (
-                <p className="text-xs text-slate-500">
-                  Última sincronização: <strong>{settings.googleCalendarLastSync}</strong>
-                </p>
-              )}
-
-              {calendarSaved && (
-                <p className="text-xs font-bold text-emerald-700 bg-emerald-100/70 p-2 rounded-lg flex items-center gap-1.5 animate-in fade-in">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>ID do Google Calendar guardado com sucesso!</span>
-                </p>
-              )}
-            </div>
           </div>
 
           {/* Section 2: Photo Check-ins Audit Gallery */}

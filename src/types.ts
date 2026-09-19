@@ -1,11 +1,3 @@
-export interface AppUser {
-  uid: string;
-  displayName: string | null;
-  email: string | null;
-  isAnonymous?: boolean;
-  photoURL?: string | null;
-}
-
 export type TaskType = 'tpc' | 'teste' | 'trabalho' | 'mochila' | 'outro';
 
 export type AlertColor = 'verde' | 'amarelo' | 'vermelho';
@@ -49,13 +41,10 @@ export interface SchoolTask {
   description: string;
   dueDate: string; // YYYY-MM-DD
   dueTime?: string; // HH:mm
-  groupMembers?: string[];
   studyPlanDaysBefore?: number;
   studySessions?: StudySession[];
   checkIn?: CheckInRecord;
   academicYear?: string; // e.g. "2026/2027"
-  googleCalendarEventId?: string;
-  googleCalendarSyncedAt?: string;
   createdAt: string;
 }
 
@@ -96,7 +85,4 @@ export interface AppSettings {
   schoolName: string; // e.g. "Escola Básica António Gedeão"
   studentClass: string; // e.g. "9º B"
   allowedEmails: string[]; // Access allowlist, e.g. ['meiraxx@gmail.com']
-  googleCalendarId?: string; // Target Google Calendar ID (e.g. 3fad003f0a2cb499176386bd47c51340ea4add46ea5d16693a2075cedb33a1b0@group.calendar.google.com)
-  googleCalendarAutoSync?: boolean;
-  googleCalendarLastSync?: string;
 }

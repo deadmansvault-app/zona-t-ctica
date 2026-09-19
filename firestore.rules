@@ -12,24 +12,19 @@ service cloud.firestore {
 
     // Returns true if the user is the primary admin
     function isPrimaryAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'meiraxx@gmail.com' ||
-        (request.auth.token.email != null && request.auth.token.email.matches('(?i)meiraxx@gmail\\.com'))
-      );
+      return isSignedIn() && request.auth.token.email == 'meiraxx@gmail.com';
     }
 
     // Check if the signed-in user is authorized via the allowlist stored in settings/app_settings
     // or is the primary administrator.
-    // Also allows anonymous/device family tokens or when settings document is not yet created.
+    // Also allows anonymous/device family tokens for devices already authenticated within the family.
     function isAllowedUser() {
       return isSignedIn() && (
         isPrimaryAdmin() ||
         request.auth.token.firebase.sign_in_provider == 'anonymous' ||
-        !exists(/databases/$(database)/documents/settings/app_settings) ||
         (
           request.auth.token.email != null &&
           exists(/databases/$(database)/documents/settings/app_settings) &&
-          'allowedEmails' in get(/databases/$(database)/documents/settings/app_settings).data &&
           request.auth.token.email in get(/databases/$(database)/documents/settings/app_settings).data.allowedEmails
         )
       );

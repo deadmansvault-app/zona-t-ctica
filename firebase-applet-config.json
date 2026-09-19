@@ -1,12 +1,12 @@
 {
-  "projectId": "gen-lang-client-0597083680",
-  "appId": "1:526461171408:web:75067ac0c681314a3c10d5",
-  "apiKey": "AIzaSyCdhjL5RhTWgBZGXcwsHXU36kALbQZN07Q",
-  "authDomain": "gen-lang-client-0597083680.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-foco9bagendaesco-9d2ebcf5-6b35-40c0-a3bd-afd42ca49d79",
-  "storageBucket": "gen-lang-client-0597083680.firebasestorage.app",
-  "messagingSenderId": "526461171408",
-  "measurementId": "",
-  "oAuthClientId": "526461171408-utdpphlv0kfvh09hg33g49fljhri54pe.apps.googleusercontent.com",
+  "projectId": "zona-tatica",
+  "appId": "1:488806974468:web:3e4daba6aa9fd742ade151",
+  "apiKey": "AIzaSyDuh8yop5OsPyG1vtvkrXdn7OTxno1lArU",
+  "authDomain": "zona-tatica.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "zona-tatica.firebasestorage.app",
+  "messagingSenderId": "488806974468",
+  "measurementId": "G-8L69KVKTZ5",
+  "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }
