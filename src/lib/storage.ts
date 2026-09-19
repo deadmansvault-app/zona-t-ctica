@@ -381,6 +381,25 @@ export async function saveSchedule(schedule: ScheduleItem[]): Promise<void> {
   }
 }
 
+export async function deleteScheduleItemFromStorage(itemId: string): Promise<void> {
+  try {
+    const dbInst = await openDatabase();
+    const tx = dbInst.transaction('schedule', 'readwrite');
+    const store = tx.objectStore('schedule');
+    store.delete(itemId);
+  } catch (err) {
+    console.warn('Erro ao remover aula de IndexedDB:', err);
+  }
+
+  if (auth.currentUser) {
+    try {
+      await deleteDoc(doc(db, 'schedule', itemId));
+    } catch (err) {
+      console.warn('Erro ao remover aula no Firestore:', err);
+    }
+  }
+}
+
 // ----------------- SETTINGS -----------------
 
 export async function loadSettings(): Promise<AppSettings> {

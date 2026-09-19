@@ -20,13 +20,14 @@ import {
   CheckInRecord,
   CheckInAlert,
 } from './types';
-import { DEFAULT_SETTINGS } from './data/timetableData';
+import { DEFAULT_SETTINGS, INITIAL_SCHEDULE } from './data/timetableData';
 import {
   loadTasks,
   saveTask,
   deleteTask,
   loadSchedule,
   saveSchedule,
+  deleteScheduleItemFromStorage,
   loadSettings,
   saveSettings,
   saveCheckIn,
@@ -328,6 +329,33 @@ export default function App() {
     await saveSchedule(updated);
   };
 
+  const handleAddScheduleItem = async (newItem: ScheduleItem) => {
+    const existingIndex = schedule.findIndex(
+      (s) => s.dayOfWeek === newItem.dayOfWeek && s.timeIndex === newItem.timeIndex
+    );
+    let updated: ScheduleItem[];
+    if (existingIndex >= 0) {
+      updated = [...schedule];
+      updated[existingIndex] = newItem;
+    } else {
+      updated = [...schedule, newItem];
+    }
+    setSchedule(updated);
+    await saveSchedule(updated);
+  };
+
+  const handleDeleteScheduleItem = async (itemId: string) => {
+    const updated = schedule.filter((s) => s.id !== itemId);
+    setSchedule(updated);
+    await saveSchedule(updated);
+    await deleteScheduleItemFromStorage(itemId);
+  };
+
+  const handleResetSchedule = async () => {
+    setSchedule(INITIAL_SCHEDULE);
+    await saveSchedule(INITIAL_SCHEDULE);
+  };
+
   const handleUpdateSettings = async (newSettings: AppSettings) => {
     setSettings(newSettings);
     await saveSettings(newSettings);
@@ -469,7 +497,11 @@ export default function App() {
         {activeTab === 'horario' && (
           <TimetableView
             schedule={schedule}
+            settings={settings}
             onUpdateScheduleItem={handleUpdateScheduleItem}
+            onAddScheduleItem={handleAddScheduleItem}
+            onDeleteScheduleItem={handleDeleteScheduleItem}
+            onResetSchedule={handleResetSchedule}
           />
         )}
 
