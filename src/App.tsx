@@ -35,6 +35,7 @@ import {
   saveBackpackItems,
   subscribeToFirebaseBackpack,
   getTomorrowDateStr,
+  getNextSchoolDayDateStr,
   exportAllData,
   importAllData,
   subscribeToFirebaseTasks,
@@ -77,7 +78,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthInitializing, setIsAuthInitializing] = useState(true);
 
-  const tomorrowDateStr = () => getTomorrowDateStr();
+  const targetBackpackDateStr = () => getNextSchoolDayDateStr();
 
   // Listen to Firebase Auth state
   useEffect(() => {
@@ -88,7 +89,7 @@ export default function App() {
       setUser(currentUser);
       setIsAuthInitializing(false);
       if (currentUser) {
-        const tDate = getTomorrowDateStr();
+        const tDate = getNextSchoolDayDateStr();
 
         // 1. Real-time tasks subscription from Firestore (even if empty)
         unsubTasks = subscribeToFirebaseTasks((cloudTasks) => {
@@ -151,7 +152,7 @@ export default function App() {
   useEffect(() => {
     async function init() {
       try {
-        const tDate = getTomorrowDateStr();
+        const tDate = getNextSchoolDayDateStr();
         const [loadedTasks, loadedSchedule, loadedSettings, loadedAlerts, bItems] = await Promise.all([
           loadTasks(),
           loadSchedule(),
@@ -247,7 +248,7 @@ export default function App() {
 
   // Handlers
   const handleToggleBackpackItem = async (item: string) => {
-    const dateKey = tomorrowDateStr();
+    const dateKey = targetBackpackDateStr();
     let updated: string[];
     if (backpackChecked.includes(item)) {
       updated = backpackChecked.filter((i) => i !== item);

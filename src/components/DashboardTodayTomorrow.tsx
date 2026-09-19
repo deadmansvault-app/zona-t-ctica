@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
   Check,
+  Sun,
 } from 'lucide-react';
 import { SchoolTask, ScheduleItem, AppSettings } from '../types';
 import { SUBJECTS, TIME_SLOTS, HANDBALL_TRAINING } from '../data/timetableData';
@@ -47,68 +48,104 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
   const [activeDayView, setActiveDayView] = useState<'hoje' | 'amanha'>('hoje');
   const [showColorExplanation, setShowColorExplanation] = useState(false);
 
-  // Today & Tomorrow calculations
+  // Today & Weekend Calculations
   const now = new Date();
-  const todayDayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
-  const tomorrowDayOfWeek = (todayDayOfWeek + 1) % 7;
+  const todayDayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon, ..., 5 = Fri, 6 = Sat
+  const isSaturday = todayDayOfWeek === 6;
+  const isSunday = todayDayOfWeek === 0;
+  const isFriday = todayDayOfWeek === 5;
+  const isWeekend = isSaturday || isSunday;
 
   // Normalized ISO strings (YYYY-MM-DD)
   const todayStr = now.toISOString().split('T')[0];
-  const tomorrowDate = new Date(now);
-  tomorrowDate.setDate(now.getDate() + 1);
-  const tomorrowStr = tomorrowDate.toISOString().split('T')[0];
 
-  // If weekend, map to next school day (Mon = 1)
-  const effectiveTodayScheduleDay = todayDayOfWeek === 0 || todayDayOfWeek === 6 ? 1 : todayDayOfWeek;
-  const effectiveTomorrowScheduleDay = tomorrowDayOfWeek === 0 || tomorrowDayOfWeek === 6 ? 1 : tomorrowDayOfWeek;
+  // Calculate Next School Day (Segunda a Sexta)
+  let nextSchoolDayOfWeek: 1 | 2 | 3 | 4 | 5 = 1;
+  const nextSchoolDate = new Date(now);
 
-  // Get classes for Today and Tomorrow
-  const todayClasses = schedule
-    .filter((s) => s.dayOfWeek === effectiveTodayScheduleDay)
+  if (todayDayOfWeek === 5) {
+    // Sexta-feira -> próxima aula é Segunda-feira (+3 dias)
+    nextSchoolDayOfWeek = 1;
+    nextSchoolDate.setDate(now.getDate() + 3);
+  } else if (todayDayOfWeek === 6) {
+    // Sábado -> próxima aula é Segunda-feira (+2 dias)
+    nextSchoolDayOfWeek = 1;
+    nextSchoolDate.setDate(now.getDate() + 2);
+  } else if (todayDayOfWeek === 0) {
+    // Domingo -> próxima aula é Segunda-feira (+1 dia)
+    nextSchoolDayOfWeek = 1;
+    nextSchoolDate.setDate(now.getDate() + 1);
+  } else {
+    // Segunda a Quinta -> próxima aula é no dia seguinte (+1 dia)
+    nextSchoolDayOfWeek = (todayDayOfWeek + 1) as 1 | 2 | 3 | 4 | 5;
+    nextSchoolDate.setDate(now.getDate() + 1);
+  }
+
+  const nextSchoolDateStr = nextSchoolDate.toISOString().split('T')[0];
+
+  const DAY_NAMES: Record<number, string> = {
+    1: 'Segunda-feira',
+    2: 'Terça-feira',
+    3: 'Quarta-feira',
+    4: 'Quinta-feira',
+    5: 'Sexta-feira',
+  };
+  const nextSchoolDayName = DAY_NAMES[nextSchoolDayOfWeek] || 'Segunda-feira';
+
+  // Classes for Today (only on weekdays 1-5; empty on weekends!)
+  const todayClasses = isWeekend
+    ? []
+    : schedule
+        .filter((s) => s.dayOfWeek === todayDayOfWeek)
+        .sort((a, b) => a.timeIndex - b.timeIndex);
+
+  // Classes for Next School Day (always 1-5, e.g. Monday on weekends or Friday)
+  const nextSchoolClasses = schedule
+    .filter((s) => s.dayOfWeek === nextSchoolDayOfWeek)
     .sort((a, b) => a.timeIndex - b.timeIndex);
 
-  const tomorrowClasses = schedule
-    .filter((s) => s.dayOfWeek === effectiveTomorrowScheduleDay)
-    .sort((a, b) => a.timeIndex - b.timeIndex);
+  // Check if today has handball training (Mon=1, Wed=3, Fri=5)
+  // NEVER on Saturday or Sunday!
+  const hasHandballToday =
+    !isWeekend && HANDBALL_TRAINING.days.includes(todayDayOfWeek as 1 | 3 | 5);
 
-  // Check if today or tomorrow has handball training (Mon=1, Wed=3, Fri=5)
-  const hasHandballToday = HANDBALL_TRAINING.days.includes(effectiveTodayScheduleDay);
-  const hasHandballTomorrow = HANDBALL_TRAINING.days.includes(effectiveTomorrowScheduleDay);
+  // Check if the next school day has handball training
+  const hasHandballNextSchoolDay = HANDBALL_TRAINING.days.includes(nextSchoolDayOfWeek);
 
-  // Tasks due today & tomorrow
+  // Tasks due today & due on next school day
   const tasksDueToday = tasks.filter((t) => t.dueDate === todayStr);
-  const tasksDueTomorrow = tasks.filter((t) => t.dueDate === tomorrowStr);
+  const tasksDueNextSchoolDay = tasks.filter((t) => t.dueDate === nextSchoolDateStr);
 
   // All upcoming tests and projects
   const upcomingTestsAndTasks = [...tasks].sort(
     (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
   );
 
-  // Tomorrow's backpack requirements based on tomorrow's subjects
-  const tomorrowSubjectsList: string[] = Array.from(
-    new Set(tomorrowClasses.map((c) => c.subjectCode))
+  // Backpack requirements based on Next School Day's subjects
+  const nextSchoolSubjectsList: string[] = Array.from(
+    new Set(nextSchoolClasses.map((c) => c.subjectCode))
   );
 
-  const backpackItemsForTomorrow: { item: string; subjectCode: string }[] = [];
-  tomorrowSubjectsList.forEach((subCode) => {
+  const backpackItemsForNextSchoolDay: { item: string; subjectCode: string }[] = [];
+  nextSchoolSubjectsList.forEach((subCode) => {
     const sub = SUBJECTS[subCode];
     if (sub && sub.backpackItems) {
       sub.backpackItems.forEach((item) => {
-        backpackItemsForTomorrow.push({ item, subjectCode: subCode });
+        backpackItemsForNextSchoolDay.push({ item, subjectCode: subCode });
       });
     }
   });
 
   const allBackpackChecked =
-    backpackItemsForTomorrow.length > 0 &&
-    backpackItemsForTomorrow.every((b) => backpackChecked.includes(b.item));
+    backpackItemsForNextSchoolDay.length > 0 &&
+    backpackItemsForNextSchoolDay.every((b) => backpackChecked.includes(b.item));
 
   return (
     <div className="space-y-6">
       {/* Motivational Mbappe / Real Madrid & Benfica Banner */}
       <MbappeCorner />
 
-      {/* Day Selector (Hoje vs Amanhã) - Prominent & ADHD Clean */}
+      {/* Day Selector (Hoje vs Amanhã / Mochila) - Prominent & ADHD Clean */}
       <div className="bg-white rounded-2xl p-2 border border-slate-200 shadow-xs flex items-center gap-2">
         <button
           onClick={() => setActiveDayView('hoje')}
@@ -119,7 +156,13 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
           }`}
         >
           <Clock className="w-4 h-4" />
-          <span>O Que Fazer Hoje</span>
+          <span>
+            {isWeekend
+              ? isSaturday
+                ? 'Hoje • Sábado'
+                : 'Hoje • Domingo'
+              : 'O Que Fazer Hoje'}
+          </span>
           {tasksDueToday.length > 0 && (
             <span
               className={`text-xs px-2 py-0.5 rounded-full font-bold ${
@@ -140,14 +183,20 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
           }`}
         >
           <Briefcase className="w-4 h-4" />
-          <span>Preparar Amanhã & Mochila</span>
-          {tasksDueTomorrow.length > 0 && (
+          <span>
+            {isFriday || isSaturday
+              ? 'Mochila de Segunda-feira'
+              : isSunday
+              ? 'Preparar Amanhã (Segunda)'
+              : 'Preparar Amanhã & Mochila'}
+          </span>
+          {tasksDueNextSchoolDay.length > 0 && (
             <span
               className={`text-xs px-2 py-0.5 rounded-full font-bold ${
                 activeDayView === 'amanha' ? 'bg-white text-red-700' : 'bg-red-100 text-red-700'
               }`}
             >
-              {tasksDueTomorrow.length}
+              {tasksDueNextSchoolDay.length}
             </span>
           )}
         </button>
@@ -156,7 +205,7 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
       {/* VIEW: HOJE */}
       {activeDayView === 'hoje' && (
         <div className="space-y-6 animate-in fade-in duration-150">
-          {/* Handball Banner if today has training */}
+          {/* Handball Banner if today has training (Only on weekdays!) */}
           {hasHandballToday && (
             <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -178,68 +227,116 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
             </div>
           )}
 
-          {/* Today's Classes & Schedule Quick Strip */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-red-600" />
-                  <span>Aulas de Hoje (9º B)</span>
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Escola Básica António Gedeão • Turma 9º B
-                </p>
-              </div>
-              <button
-                onClick={onOpenScheduleTab}
-                className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1 hover:underline"
-              >
-                <span>Ver Horário Completo</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
-              {todayClasses.map((item, idx) => {
-                const sub = SUBJECTS[item.subjectCode] || {
-                  name: item.subjectCode,
-                  code: item.subjectCode,
-                  color: 'border-slate-300 bg-slate-50 text-slate-800',
-                  teacher: '',
-                };
-                const slot = TIME_SLOTS.find((t) => t.timeIndex === item.timeIndex);
-
-                return (
-                  <div
-                    key={item.id || idx}
-                    className={`rounded-xl p-3 border ${sub.color} flex flex-col justify-between shadow-2xs hover:shadow-xs transition-shadow`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="text-xs font-black tracking-wider uppercase">
-                          {item.subjectCode}
-                        </span>
-                        <span className="text-[10px] font-bold bg-white/80 px-1.5 py-0.5 rounded-md border border-slate-200">
-                          {item.room}
-                        </span>
-                      </div>
-                      <p className="text-xs font-bold text-slate-900 truncate" title={sub.name}>
-                        {sub.name}
-                      </p>
-                      {sub.teacher && (
-                        <p className="text-[10px] text-slate-600 truncate mt-0.5">
-                          {sub.teacher}
-                        </p>
-                      )}
-                    </div>
-                    <p className="text-[10px] font-semibold text-slate-500 mt-2 border-t border-slate-200/60 pt-1">
-                      {slot ? slot.startTime : `Tempo ${item.timeIndex}`}
-                    </p>
+          {/* If Weekend: Warm supportive banner for Saturday or Sunday */}
+          {isWeekend ? (
+            <div className="bg-gradient-to-br from-emerald-50 via-teal-50/40 to-slate-50 rounded-2xl border border-emerald-200 p-5 sm:p-6 shadow-xs">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0 shadow-2xs">
+                  <Sun className="w-6 h-6 text-emerald-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap mb-1">
+                    <span className="text-xs font-black uppercase tracking-wider bg-emerald-600 text-white px-2.5 py-0.5 rounded-full">
+                      Fim de Semana
+                    </span>
+                    <span className="text-xs font-bold text-slate-500">
+                      {isSaturday ? 'Sábado' : 'Domingo'} • Sem aulas hoje
+                    </span>
                   </div>
-                );
-              })}
+                  <h3 className="text-lg font-black text-slate-900">
+                    {isSaturday
+                      ? 'Bom sábado! Dia de descanso e recarregar energias'
+                      : 'Bom domingo! Aproveita o resto do fim de semana'}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-2xl">
+                    {isSaturday
+                      ? 'Hoje não há aulas. Aproveita para relaxar, praticar desporto ou pôr as matérias em dia sem pressa.'
+                      : 'Hoje não há aulas. Lembra-te de conferir com calma a mochila e os materiais para amanhã (Segunda-feira).'}
+                  </p>
+
+                  <div className="mt-4 flex items-center justify-center sm:justify-start gap-2.5 flex-wrap">
+                    <button
+                      onClick={() => setActiveDayView('amanha')}
+                      className="inline-flex items-center gap-1.5 text-xs font-extrabold text-white bg-red-600 hover:bg-red-700 px-3.5 py-2 rounded-xl shadow-xs transition-colors"
+                    >
+                      <Briefcase className="w-3.5 h-3.5" />
+                      <span>Ver Mochila de Segunda-feira</span>
+                    </button>
+                    <button
+                      onClick={onOpenScheduleTab}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-xl transition-colors"
+                    >
+                      <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Ver Horário da Semana</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            /* Weekday Classes Strip */
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-red-600" />
+                    <span>Aulas de Hoje (9º B)</span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Escola Básica António Gedeão • Turma 9º B
+                  </p>
+                </div>
+                <button
+                  onClick={onOpenScheduleTab}
+                  className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1 hover:underline"
+                >
+                  <span>Ver Horário Completo</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
+                {todayClasses.map((item, idx) => {
+                  const sub = SUBJECTS[item.subjectCode] || {
+                    name: item.subjectCode,
+                    code: item.subjectCode,
+                    color: 'border-slate-300 bg-slate-50 text-slate-800',
+                    teacher: '',
+                  };
+                  const slot = TIME_SLOTS.find((t) => t.timeIndex === item.timeIndex);
+
+                  return (
+                    <div
+                      key={item.id || idx}
+                      className={`rounded-xl p-3 border ${sub.color} flex flex-col justify-between shadow-2xs hover:shadow-xs transition-shadow`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="text-xs font-black tracking-wider uppercase">
+                            {item.subjectCode}
+                          </span>
+                          <span className="text-[10px] font-bold bg-white/80 px-1.5 py-0.5 rounded-md border border-slate-200">
+                            {item.room}
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold text-slate-900 truncate" title={sub.name}>
+                          {sub.name}
+                        </p>
+                        {sub.teacher && (
+                          <p className="text-[10px] text-slate-600 truncate mt-0.5">
+                            {sub.teacher}
+                          </p>
+                        )}
+                      </div>
+                      <p className="text-[10px] font-semibold text-slate-500 mt-2 border-t border-slate-200/60 pt-1">
+                        {slot ? slot.startTime : `Tempo ${item.timeIndex}`}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Tasks Due Today */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
@@ -247,10 +344,18 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
               <div>
                 <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-red-600" />
-                  <span>Trabalhos & TPCs para Entregar Hoje</span>
+                  <span>
+                    {isWeekend
+                      ? isSaturday
+                        ? 'Trabalhos & TPCs para Hoje (Sábado)'
+                        : 'Trabalhos & TPCs para Hoje (Domingo)'
+                      : 'Trabalhos & TPCs para Entregar Hoje'}
+                  </span>
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Faz o check-in com foto assim que terminares!
+                  {isWeekend
+                    ? 'Tarefas com data limite para este fim de semana.'
+                    : 'Faz o check-in com foto assim que terminares!'}
                 </p>
               </div>
               <button
@@ -264,10 +369,14 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
             {tasksDueToday.length === 0 ? (
               <div className="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
                 <p className="text-sm font-bold text-slate-700">
-                  🎉 Nenhum TPC ou teste marcado para hoje!
+                  {isWeekend
+                    ? '🎉 Nenhum trabalho agendado para hoje!'
+                    : '🎉 Nenhum TPC ou teste marcado para hoje!'}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Aproveita para adiantar o estudo dos próximos testes ou preparar a mochila de amanhã.
+                  {isWeekend
+                    ? 'Bom fim de semana! Se quiseres, podes adiantar o estudo ou conferir a mochila de Segunda-feira.'
+                    : 'Aproveita para adiantar o estudo dos próximos testes ou preparar a mochila de amanhã.'}
                 </p>
               </div>
             ) : (
@@ -289,11 +398,11 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
         </div>
       )}
 
-      {/* VIEW: AMANHÃ & MOCHILA */}
+      {/* VIEW: AMANHÃ & MOCHILA (OU PRÓXIMO DIA LETIVO NOS FINS DE SEMANA) */}
       {activeDayView === 'amanha' && (
         <div className="space-y-6 animate-in fade-in duration-150">
-          {/* Handball Banner if tomorrow has training */}
-          {hasHandballTomorrow && (
+          {/* Handball Banner if Next School Day has training */}
+          {hasHandballNextSchoolDay && (
             <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
@@ -301,28 +410,44 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
                 </div>
                 <div>
                   <h4 className="font-extrabold text-sm sm:text-base">
-                    Amanhã tens Treino de Andebol! (20h00 às 22h00)
+                    {isFriday || isSaturday
+                      ? 'Na Segunda-feira tens Treino de Andebol! (20h00 às 22h00)'
+                      : isSunday
+                      ? 'Amanhã (Segunda-feira) tens Treino de Andebol! (20h00 às 22h00)'
+                      : `Amanhã (${nextSchoolDayName}) tens Treino de Andebol! (20h00 às 22h00)`}
                   </h4>
                   <p className="text-xs text-amber-100">
                     Lembra-te de levar o saco de andebol com o equipamento pronto.
                   </p>
                 </div>
               </div>
+              <span className="text-xs font-bold uppercase bg-white/20 px-3 py-1 rounded-lg border border-white/20 hidden sm:inline-block">
+                Pavilhão
+              </span>
             </div>
           )}
 
-          {/* Mochila do Dia Seguinte (Crucial for ADHD routine) */}
+          {/* Mochila (Crucial for ADHD routine) */}
           <div className="bg-gradient-to-br from-red-50 to-rose-50/50 rounded-2xl border-2 border-red-200 p-5 shadow-xs">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-red-600" />
                   <h3 className="font-black text-base sm:text-lg text-slate-900 flex items-center gap-2">
-                    🎒 Preparar a Mochila para Amanhã
+                    🎒{' '}
+                    {isFriday || isSaturday
+                      ? 'Preparar a Mochila para Segunda-feira'
+                      : isSunday
+                      ? 'Preparar a Mochila para Amanhã (Segunda-feira)'
+                      : `Preparar a Mochila para Amanhã (${nextSchoolDayName})`}
                   </h3>
                 </div>
                 <p className="text-xs text-slate-600 mt-0.5">
-                  Marca cada material que colocas na mochila para não esqueceres nada.
+                  {isFriday || isSaturday
+                    ? 'Amanhã é fim de semana! Podes adiantar os materiais de Segunda-feira para aproveitares com tranquilidade.'
+                    : isSunday
+                    ? 'Amanhã recomeçam as aulas! Marca cada material que colocas na mochila para não esqueceres nada.'
+                    : 'Marca cada material que colocas na mochila para não esqueceres nada.'}
                 </p>
               </div>
 
@@ -333,14 +458,14 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
                 </div>
               ) : (
                 <div className="text-xs font-extrabold text-red-700 bg-white px-3 py-1.5 rounded-xl border border-red-200">
-                  {backpackChecked.length} de {backpackItemsForTomorrow.length} itens guardados
+                  {backpackChecked.length} de {backpackItemsForNextSchoolDay.length} itens guardados
                 </div>
               )}
             </div>
 
-            {/* Checklist items generated from tomorrow's classes */}
+            {/* Checklist items generated from next school day's classes */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {backpackItemsForTomorrow.map((bItem, idx) => {
+              {backpackItemsForNextSchoolDay.map((bItem, idx) => {
                 const isChecked = backpackChecked.includes(bItem.item);
                 const sub = SUBJECTS[bItem.subjectCode];
 
@@ -382,15 +507,28 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
             </div>
           </div>
 
-          {/* Tomorrow's Schedule */}
+          {/* Next School Day's Schedule */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-            <h3 className="font-extrabold text-base text-slate-900 mb-3 flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-red-600" />
-              <span>Aulas de Amanhã (9º B)</span>
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-red-600" />
+                <span>
+                  {isFriday || isSaturday
+                    ? 'Aulas de Segunda-feira (9º B)'
+                    : isSunday
+                    ? 'Aulas de Amanhã — Segunda-feira (9º B)'
+                    : `Aulas de Amanhã — ${nextSchoolDayName} (9º B)`}
+                </span>
+              </h3>
+              <span className="text-xs text-slate-500 hidden sm:inline">
+                {isFriday || isSaturday
+                  ? 'Próximo dia letivo • Escola Básica António Gedeão'
+                  : 'Escola Básica António Gedeão • Turma 9º B'}
+              </span>
+            </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
-              {tomorrowClasses.map((item, idx) => {
+              {nextSchoolClasses.map((item, idx) => {
                 const sub = SUBJECTS[item.subjectCode] || {
                   name: item.subjectCode,
                   code: item.subjectCode,
@@ -429,20 +567,30 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
             </div>
           </div>
 
-          {/* Tasks Due Tomorrow */}
+          {/* Tasks Due Next School Day */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
             <h3 className="font-extrabold text-base text-slate-900 mb-3 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-red-600" />
-              <span>Trabalhos & TPCs para Amanhã</span>
+              <span>
+                {isFriday || isSaturday
+                  ? 'Trabalhos & TPCs para Segunda-feira'
+                  : isSunday
+                  ? 'Trabalhos & TPCs para Amanhã (Segunda-feira)'
+                  : `Trabalhos & TPCs para Amanhã (${nextSchoolDayName})`}
+              </span>
             </h3>
 
-            {tasksDueTomorrow.length === 0 ? (
+            {tasksDueNextSchoolDay.length === 0 ? (
               <div className="p-5 text-center bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500 font-medium">
-                Nenhum trabalho agendado especificamente para amanhã.
+                {isFriday || isSaturday
+                  ? 'Nenhum trabalho agendado especificamente para Segunda-feira.'
+                  : isSunday
+                  ? 'Nenhum trabalho agendado especificamente para amanhã (Segunda-feira).'
+                  : 'Nenhum trabalho agendado especificamente para amanhã.'}
               </div>
             ) : (
               <div className="space-y-3">
-                {tasksDueTomorrow.map((task) => (
+                {tasksDueNextSchoolDay.map((task) => (
                   <TaskCard
                     key={task.id}
                     task={task}

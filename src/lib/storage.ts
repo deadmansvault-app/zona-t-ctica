@@ -29,6 +29,29 @@ export function getTomorrowDateStr(): string {
   return d.toISOString().split('T')[0];
 }
 
+export function getNextSchoolDayDate(): Date {
+  const d = new Date();
+  const day = d.getDay(); // 0 = Sun, 1 = Mon, ..., 5 = Fri, 6 = Sat
+  if (day === 5) {
+    // Sexta-feira -> próxima aula é Segunda-feira (+3 dias)
+    d.setDate(d.getDate() + 3);
+  } else if (day === 6) {
+    // Sábado -> próxima aula é Segunda-feira (+2 dias)
+    d.setDate(d.getDate() + 2);
+  } else if (day === 0) {
+    // Domingo -> próxima aula é Segunda-feira (+1 dia)
+    d.setDate(d.getDate() + 1);
+  } else {
+    // Segunda a Quinta -> próxima aula é amanhã (+1 dia)
+    d.setDate(d.getDate() + 1);
+  }
+  return d;
+}
+
+export function getNextSchoolDayDateStr(): string {
+  return getNextSchoolDayDate().toISOString().split('T')[0];
+}
+
 // Helper to remove undefined values for Firestore serialization
 function cleanForFirestore<T extends Record<string, any>>(obj: T): T {
   const res: any = {};
