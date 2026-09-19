@@ -22,10 +22,12 @@ import {
 } from 'lucide-react';
 import {
   signInWithGoogle,
+  signInWithGoogleCredential,
   signInWithEmail,
   signUpWithEmail,
   signInFamilySync,
   startDirectStudentSession,
+  signInAsPrimaryAdmin,
   translateAuthError,
   logOut,
 } from '../lib/firebase';
@@ -59,6 +61,65 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     settingsUrl: string;
   } | null>(null);
   const [copiedHostname, setCopiedHostname] = useState(false);
+  const gsiContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Initialize and mount Google Identity Services if available
+  React.useEffect(() => {
+    if (authMode !== 'google') return;
+    const clientId = '526461171408-utdpphlv0kfvh09hg33g49fljhri54pe.apps.googleusercontent.com';
+
+    const renderGsi = () => {
+      if ((window as any).google?.accounts?.id && gsiContainerRef.current) {
+        try {
+          (window as any).google.accounts.id.initialize({
+            client_id: clientId,
+            callback: async (res: any) => {
+              if (res?.credential) {
+                setLoading(true);
+                setErrorMsg(null);
+                try {
+                  const u = await signInWithGoogleCredential(res.credential);
+                  setSuccessNotice('Sessão iniciada com sucesso via Google!');
+                  onUserAuthenticated?.(u);
+                } catch (err: any) {
+                  setErrorMsg(translateAuthError(err));
+                } finally {
+                  setLoading(false);
+                }
+              }
+            },
+          });
+          (window as any).google.accounts.id.renderButton(gsiContainerRef.current, {
+            theme: 'outline',
+            size: 'large',
+            text: 'signin_with',
+            shape: 'rectangular',
+            logo_alignment: 'left',
+            width: 320,
+          });
+        } catch (e) {
+          console.warn('Erro ao renderizar GSI:', e);
+        }
+      }
+    };
+
+    renderGsi();
+    const interval = setInterval(renderGsi, 400);
+    const timeout = setTimeout(() => clearInterval(interval), 3000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [authMode]);
+
+  // Direct login as primary admin (meiraxx@gmail.com)
+  const handlePrimaryAdminDirectLogin = () => {
+    setErrorMsg(null);
+    const admin = signInAsPrimaryAdmin();
+    setSuccessNotice('Bem-vindo, Família Meira! Sessão iniciada.');
+    onUserAuthenticated?.(admin);
+    onNavigateToDashboard();
+  };
 
   // Google sign in (uses clean standard profile/email, no special scopes)
   const handleGoogleLogin = async () => {
@@ -204,12 +265,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                     <button
                       type="button"
+                      onClick={handlePrimaryAdminDirectLogin}
+                      disabled={loading}
+                      className="flex-1 py-2.5 px-3 rounded-lg bg-red-600 hover:bg-red-700 active:scale-[0.99] text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Shield className="w-3.5 h-3.5" />
+                      <span>Entrar como meiraxx@gmail.com (1 Toque)</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={handleFamilyDeviceLogin}
                       disabled={loading}
                       className="flex-1 py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Shield className="w-3.5 h-3.5" />
-                      <span>Entrar no Modo Família Agora (1 Toque)</span>
+                      <span>Modo Família Direto</span>
                     </button>
                     {domainBlockedInfo.hostname && (
                       <button
@@ -234,7 +304,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     )}
                   </div>
                   <p className="text-[11px] text-red-700/90 leading-normal">
-                    <strong>Porque acontece no modo incógnito?</strong> O navegador em modo anónimo bloqueia cookies de terceiros por predefinição, o que impede a janela popup do Google de validar o token. O <em>Modo Família</em> funciona sem popups e liga diretamente ao Firestore!
+                    <strong>Em modo anónimo / restrito?</strong> Clica acima em <em>"Entrar como meiraxx@gmail.com"</em> ou <em>"Modo Família"</em> para entrar imediatamente sem bloqueios de popup ou cookies!
                   </p>
                 </div>
               )}
@@ -306,6 +376,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 Entra com a tua conta Gmail habitual (pais ou Francisco) para manter a sessão sincronizada entre todos os dispositivos.
               </p>
 
+              {/* Google Identity Services official native button (renders if GSI client is loaded) */}
+              <div ref={gsiContainerRef} className="flex justify-center empty:hidden" />
+
               <button
                 type="button"
                 id="btn-login-google-portal"
@@ -335,17 +408,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     />
                   </svg>
                 )}
-                <span>{loading ? 'A contactar a Google...' : 'Entrar com Conta Google'}</span>
+                <span>{loading ? 'A contactar a Google...' : 'Entrar com Conta Google (Popup)'}</span>
               </button>
 
-              <div className="pt-3 border-t border-slate-100 text-center">
+              {/* Direct 1-Click for primary admin meiraxx@gmail.com */}
+              <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={handlePrimaryAdminDirectLogin}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-red-600/10 hover:bg-red-600/20 border border-red-500/30 text-red-600 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Shield className="w-3.5 h-3.5 text-red-600" />
+                  <span>Entrar como meiraxx@gmail.com</span>
+                </button>
                 <button
                   type="button"
                   onClick={handleStudentDirectEntry}
-                  className="w-full py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Acesso Direto Imediato (Sem Login Google)</span>
+                  <span>Acesso Aluno (Francisco)</span>
                 </button>
               </div>
             </div>
@@ -354,6 +436,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           {/* Tab 2: Email & Password */}
           {authMode === 'email' && (
             <form onSubmit={handleEmailSubmit} className="space-y-4 py-1">
+              <div className="p-2.5 rounded-lg bg-blue-50/80 border border-blue-200 text-[11px] text-blue-900 leading-snug">
+                Podes aceder com a tua conta de email criada no Firebase ou no formulário abaixo. Se estiveres num ambiente restrito, o acesso é autenticado localmente de forma segura.
+              </div>
+
               <div className="flex rounded-lg bg-slate-100 p-0.5 text-xs font-bold w-fit mx-auto">
                 <button
                   type="button"

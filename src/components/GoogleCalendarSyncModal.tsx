@@ -24,7 +24,7 @@ import {
 } from '../lib/googleCalendarSync';
 import {
   getCachedGoogleAccessToken,
-  signInWithGoogle,
+  requestGoogleAccessTokenForCalendar,
 } from '../lib/firebase';
 import { GoogleSignInButton } from './GoogleSignInButton';
 import { exportAllToIcs, getHandballGoogleCalendarUrl } from '../lib/googleCalendar';
@@ -68,8 +68,8 @@ export const GoogleCalendarSyncModal: React.FC<GoogleCalendarSyncModalProps> = (
     setIsSigningIn(true);
     setErrorMessage(null);
     try {
-      const user = await signInWithGoogle(true);
-      if (user && getCachedGoogleAccessToken()) {
+      const token = await requestGoogleAccessTokenForCalendar();
+      if (token && getCachedGoogleAccessToken()) {
         // Automatically trigger sync right after connecting!
         await handlePullSync();
       }

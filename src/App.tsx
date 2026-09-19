@@ -80,20 +80,18 @@ export default function App() {
 
   const tomorrowDateStr = () => getTomorrowDateStr();
 
-  // Listen to Firebase Auth state
+  // Listen to Firebase Auth state & sync with active user
   useEffect(() => {
     let unsubTasks: (() => void) | null = null;
     let unsubBackpack: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-      } else {
-        const local = getLocalUserSession();
-        setUser(local);
-      }
+      const local = getLocalUserSession();
+      const activeUser = currentUser || local;
+      setUser(activeUser);
       setIsAuthInitializing(false);
-      if (currentUser) {
+
+      if (activeUser) {
         const tDate = getTomorrowDateStr();
 
         // 1. Real-time tasks subscription from Firestore (even if empty)
