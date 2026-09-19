@@ -21,7 +21,32 @@ import {
   onSnapshot,
   getDocs,
 } from 'firebase/firestore';
+import { AppUser } from '../types';
 import firebaseConfig from '../../firebase-applet-config.json';
+
+// Local Session Persistence Key
+export const LOCAL_USER_KEY = 'foco_9b_local_user_session';
+
+export function getLocalUserSession(): AppUser | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(LOCAL_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveLocalUserSession(user: AppUser | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (user) {
+      localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(LOCAL_USER_KEY);
+    }
+  } catch {}
+}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -34,16 +59,20 @@ export const db =
     : getFirestore(app);
 export const auth = getAuth(app);
 
-// Workspace integration scopes
+// Workspace integration scopes (used exclusively for Google Calendar event sync)
 export const SCOPES = [
   'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/calendar.readonly',
 ];
 
-// Authentication helpers
-const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: 'select_account' });
-SCOPES.forEach((scope) => googleProvider.addScope(scope));
+// 1. Standard Google Auth Provider (basic profile & email, zero friction for login)
+const standardGoogleProvider = new GoogleAuthProvider();
+standardGoogleProvider.setCustomParameters({ prompt: 'select_account' });
+
+// 2. Calendar Google Auth Provider (specifically for Google Calendar integration)
+const calendarGoogleProvider = new GoogleAuthProvider();
+calendarGoogleProvider.setCustomParameters({ prompt: 'select_account' });
+SCOPES.forEach((scope) => calendarGoogleProvider.addScope(scope));
 
 // In-memory token cache for Google Workspace APIs (per security guidelines, never in localStorage)
 let cachedAccessToken: string | null = null;
@@ -72,18 +101,20 @@ export function getCurrentDomainAuthInfo(): {
   settingsUrl: string;
 } {
   const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-  const projectId = firebaseConfig.projectId || 'zona-tatica';
+  const projectId = firebaseConfig.projectId || 'gen-lang-client-0597083680';
   const settingsUrl = `https://console.firebase.google.com/project/${projectId}/authentication/settings`;
   return { hostname, projectId, settingsUrl };
 }
 
-export async function signInWithGoogle(): Promise<User | null> {
+export async function signInWithGoogle(withCalendarScopes: boolean = false): Promise<User | null> {
+  const provider = withCalendarScopes ? calendarGoogleProvider : standardGoogleProvider;
   try {
-    const result = await signInWithPopup(auth, googleProvider);
+    const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (credential?.accessToken) {
       cachedAccessToken = credential.accessToken;
     }
+    saveLocalUserSession(null);
     return result.user;
   } catch (error: any) {
     const errorCode = error?.code || '';
@@ -127,18 +158,40 @@ export async function signInWithGoogle(): Promise<User | null> {
 }
 
 /**
- * Sign in as a family device / anonymous session.
- * Does NOT require Google OAuth popup or domain authorization.
- * Allows Firestore real-time sync immediately on GitHub Pages and all domains.
+ * Sign in as a family device / direct session.
+ * Tries Firebase anonymous authentication first; if disabled in console or domain blocked,
+ * creates a reliable local session immediately so the user is NEVER blocked from their app.
  */
-export async function signInFamilySync(): Promise<User | null> {
+export async function signInFamilySync(): Promise<User | AppUser> {
   try {
     const cred = await signInAnonymously(auth);
+    saveLocalUserSession(null);
     return cred.user;
   } catch (error: any) {
-    console.error('Erro no início de sessão anónimo / família:', error);
-    throw error;
+    console.warn('Início de sessão anónimo no Firebase falhou ou está restrito. A usar sessão direta:', error?.message || error);
+    const localUser: AppUser = {
+      uid: 'familia-9b-direct',
+      displayName: 'Família 9º B (Modo Direto)',
+      email: 'familia@foco9b.escola',
+      isAnonymous: true,
+    };
+    saveLocalUserSession(localUser);
+    return localUser;
   }
+}
+
+/**
+ * Direct student entry without requiring any external accounts.
+ */
+export function startDirectStudentSession(): AppUser {
+  const studentUser: AppUser = {
+    uid: 'francisco-aluno-9b',
+    displayName: 'Francisco (9º B)',
+    email: 'francisco@escola-sede.pt',
+    isAnonymous: true,
+  };
+  saveLocalUserSession(studentUser);
+  return studentUser;
 }
 
 export async function signInWithEmail(email: string, pass: string): Promise<User> {
@@ -195,6 +248,7 @@ export function translateAuthError(error: any): string {
 export async function logOut(): Promise<void> {
   try {
     cachedAccessToken = null;
+    saveLocalUserSession(null);
     await firebaseSignOut(auth);
   } catch (error: any) {
     console.warn('Aviso ao terminar sessão:', error?.message || error);

@@ -1,3 +1,11 @@
+export interface AppUser {
+  uid: string;
+  displayName: string | null;
+  email: string | null;
+  isAnonymous?: boolean;
+  photoURL?: string | null;
+}
+
 export type TaskType = 'tpc' | 'teste' | 'trabalho' | 'mochila' | 'outro';
 
 export type AlertColor = 'verde' | 'amarelo' | 'vermelho';

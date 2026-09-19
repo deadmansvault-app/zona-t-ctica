@@ -19,6 +19,7 @@ import {
   AppSettings,
   CheckInRecord,
   CheckInAlert,
+  AppUser,
 } from './types';
 import { DEFAULT_SETTINGS } from './data/timetableData';
 import {
@@ -47,6 +48,7 @@ import {
   signInWithGoogle,
   signInFamilySync,
   logOut,
+  getLocalUserSession,
   FirebaseAuthErrorInfo,
   getCurrentDomainAuthInfo,
 } from './lib/firebase';
@@ -59,7 +61,7 @@ export default function App() {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [backpackChecked, setBackpackChecked] = useState<string[]>([]);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | AppUser | null>(() => getLocalUserSession());
   const [alerts, setAlerts] = useState<CheckInAlert[]>([]);
   const [currentAlert, setCurrentAlert] = useState<CheckInAlert | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<{ url: string; title: string } | null>(null);
@@ -84,7 +86,12 @@ export default function App() {
     let unsubBackpack: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
+      if (currentUser) {
+        setUser(currentUser);
+      } else {
+        const local = getLocalUserSession();
+        setUser(local);
+      }
       setIsAuthInitializing(false);
       if (currentUser) {
         const tDate = getTomorrowDateStr();
@@ -193,6 +200,7 @@ export default function App() {
     try {
       const u = await signInWithGoogle();
       if (u) {
+        setUser(u);
         setIsCloudModalOpen(false);
         setCloudAuthError(null);
       }
@@ -226,6 +234,7 @@ export default function App() {
     try {
       const u = await signInFamilySync();
       if (u) {
+        setUser(u);
         setIsCloudModalOpen(false);
         setCloudAuthError(null);
       }
@@ -239,8 +248,10 @@ export default function App() {
   const handleLogoutGoogle = async () => {
     try {
       await logOut();
+      setUser(null);
     } catch (err: any) {
       console.warn('Saída de sessão não concluída:', err?.message || err);
+      setUser(null);
     }
   };
 
@@ -401,8 +412,13 @@ export default function App() {
         <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
           <LoginPage
             user={user}
+            settings={settings}
             onNavigateToDashboard={() => setActiveTab('dashboard')}
             onNavigateToParents={() => setActiveTab('pais')}
+            onUserAuthenticated={(authenticatedUser) => {
+              setUser(authenticatedUser);
+              setActiveTab('dashboard');
+            }}
           />
         </div>
         <footer className="border-t border-slate-200 bg-white py-3.5 px-4 text-center text-xs text-slate-500">

@@ -15,7 +15,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { User } from 'firebase/auth';
-import { SchoolTask, AppSettings } from '../types';
+import { SchoolTask, AppSettings, AppUser } from '../types';
 import {
   DEFAULT_GOOGLE_CALENDAR_ID,
   syncGoogleCalendarToTasks,
@@ -36,7 +36,7 @@ interface GoogleCalendarSyncModalProps {
   onUpdateSettings: (settings: AppSettings) => Promise<void> | void;
   tasks: SchoolTask[];
   onSyncTasks: (tasks: SchoolTask[]) => Promise<void> | void;
-  currentUser: User | null;
+  currentUser: User | AppUser | null;
 }
 
 export const GoogleCalendarSyncModal: React.FC<GoogleCalendarSyncModalProps> = ({
@@ -68,7 +68,7 @@ export const GoogleCalendarSyncModal: React.FC<GoogleCalendarSyncModalProps> = (
     setIsSigningIn(true);
     setErrorMessage(null);
     try {
-      const user = await signInWithGoogle();
+      const user = await signInWithGoogle(true);
       if (user && getCachedGoogleAccessToken()) {
         // Automatically trigger sync right after connecting!
         await handlePullSync();

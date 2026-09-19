@@ -17,7 +17,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { User } from 'firebase/auth';
-import { CheckInAlert, AppSettings } from '../types';
+import { CheckInAlert, AppSettings, AppUser } from '../types';
 import { SUBJECTS } from '../data/timetableData';
 import { requestBrowserNotificationPermission } from '../lib/sound';
 
@@ -25,7 +25,7 @@ interface NavbarProps {
   activeTab: 'dashboard' | 'calendario' | 'horario' | 'tarefas' | 'pais';
   setActiveTab: (tab: 'dashboard' | 'calendario' | 'horario' | 'tarefas' | 'pais') => void;
   pendingCount: number;
-  user: User | null;
+  user: User | AppUser | null;
   settings?: AppSettings;
   alerts?: CheckInAlert[];
   isLoggingIn?: boolean;

@@ -27,13 +27,13 @@ import {
   Trash2,
 } from 'lucide-react';
 import { User } from 'firebase/auth';
-import { SchoolTask, CheckInRecord, AppSettings } from '../types';
+import { SchoolTask, CheckInRecord, AppSettings, AppUser } from '../types';
 import { SUBJECTS } from '../data/timetableData';
 
 interface ParentHistoryViewProps {
   tasks: SchoolTask[];
   settings: AppSettings;
-  user: User | null;
+  user: User | AppUser | null;
   isLoggingIn?: boolean;
   onLoginGoogle: () => void;
   onLogoutGoogle: () => void;

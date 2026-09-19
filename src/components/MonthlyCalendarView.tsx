@@ -28,6 +28,7 @@ import { CalendarEventAutomationModal } from './CalendarEventAutomationModal';
 import { GoogleCalendarSyncModal } from './GoogleCalendarSyncModal';
 import { parseIcsToAutomatedTasks } from '../lib/calendarAutomation';
 import { User } from 'firebase/auth';
+import { AppUser } from '../types';
 
 interface MonthlyCalendarViewProps {
   tasks: SchoolTask[];
@@ -41,7 +42,7 @@ interface MonthlyCalendarViewProps {
   onAddTask?: (task: SchoolTask) => Promise<void> | void;
   onUpdateSettings?: (settings: AppSettings) => Promise<void> | void;
   onSyncTasks?: (tasks: SchoolTask[]) => Promise<void> | void;
-  currentUser?: User | null;
+  currentUser?: User | AppUser | null;
 }
 
 export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({

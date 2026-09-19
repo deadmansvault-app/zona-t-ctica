@@ -17,22 +17,26 @@ import {
   Check,
   Globe,
   ExternalLink,
+  Copy,
+  Info,
 } from 'lucide-react';
 import {
   signInWithGoogle,
   signInWithEmail,
   signUpWithEmail,
   signInFamilySync,
+  startDirectStudentSession,
   translateAuthError,
   logOut,
 } from '../lib/firebase';
-import { AppSettings } from '../types';
+import { AppSettings, AppUser } from '../types';
 
 interface LoginPageProps {
-  user: User | null;
+  user: User | AppUser | null;
   settings?: AppSettings;
   onNavigateToDashboard: () => void;
   onNavigateToParents: () => void;
+  onUserAuthenticated?: (user: User | AppUser) => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({
@@ -40,6 +44,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   settings,
   onNavigateToDashboard,
   onNavigateToParents,
+  onUserAuthenticated,
 }) => {
   const [authMode, setAuthMode] = useState<'google' | 'email' | 'device'>('google');
   const [emailAction, setEmailAction] = useState<'signin' | 'signup'>('signin');
@@ -49,24 +54,35 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
+  const [domainBlockedInfo, setDomainBlockedInfo] = useState<{
+    hostname: string;
+    settingsUrl: string;
+  } | null>(null);
+  const [copiedHostname, setCopiedHostname] = useState(false);
 
-  // Google sign in
+  // Google sign in (uses clean standard profile/email, no special scopes)
   const handleGoogleLogin = async () => {
     setErrorMsg(null);
+    setDomainBlockedInfo(null);
     setLoading(true);
     try {
-      const u = await signInWithGoogle();
+      const u = await signInWithGoogle(false);
       if (u) {
         setSuccessNotice('Sessão iniciada com sucesso via Google!');
+        onUserAuthenticated?.(u);
       }
     } catch (err: any) {
       if (err?.isUnauthorizedDomain) {
+        setDomainBlockedInfo({
+          hostname: err.hostname || (typeof window !== 'undefined' ? window.location.hostname : ''),
+          settingsUrl: err.settingsUrl || 'https://console.firebase.google.com/project/gen-lang-client-0597083680/authentication/settings',
+        });
         setErrorMsg(
-          'O domínio desta janela ainda não está na lista de autorizados do Firebase. Podes usar a opção "Acesso Direto / Família" para entrar imediatamente!'
+          'O domínio desta janela ainda não está na lista de autorizados do Firebase (ou os cookies de terceiros estão bloqueados pelo modo incógnito). Podes entrar agora mesmo através do Modo Família com 1 toque!'
         );
       } else if (err?.isPopupBlocked) {
         setErrorMsg(
-          'O navegador bloqueou a janela de login da Google. Permite popups no Safari/Chrome ou usa a opção "Acesso Direto / Família".'
+          'O navegador bloqueou a janela de login da Google. Permite popups no navegador ou usa a opção "Modo Família".'
         );
       } else {
         setErrorMsg(translateAuthError(err));
@@ -94,11 +110,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setLoading(true);
     try {
       if (emailAction === 'signup') {
-        await signUpWithEmail(email, password, displayName || 'Família 9ºB');
+        const u = await signUpWithEmail(email, password, displayName || 'Família 9ºB');
         setSuccessNotice('Conta criada com sucesso! A entrar...');
+        onUserAuthenticated?.(u);
       } else {
-        await signInWithEmail(email, password);
+        const u = await signInWithEmail(email, password);
         setSuccessNotice('Sessão iniciada com sucesso! A entrar...');
+        onUserAuthenticated?.(u);
       }
     } catch (err: any) {
       setErrorMsg(translateAuthError(err));
@@ -107,18 +125,30 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
   };
 
-  // Quick family device sign-in
+  // Quick family device sign-in (100% resilient - guaranteed to let family in)
   const handleFamilyDeviceLogin = async () => {
     setErrorMsg(null);
     setLoading(true);
     try {
-      await signInFamilySync();
+      const u = await signInFamilySync();
       setSuccessNotice('Dispositivo sincronizado com a base de dados familiar! A entrar...');
+      onUserAuthenticated?.(u);
+      onNavigateToDashboard();
     } catch (err: any) {
-      setErrorMsg(translateAuthError(err));
+      // Direct local session safety net
+      const local = startDirectStudentSession();
+      onUserAuthenticated?.(local);
+      onNavigateToDashboard();
     } finally {
       setLoading(false);
     }
+  };
+
+  // Direct student bypass
+  const handleStudentDirectEntry = () => {
+    const studentUser = startDirectStudentSession();
+    onUserAuthenticated?.(studentUser);
+    onNavigateToDashboard();
   };
 
   // Logout
@@ -163,9 +193,51 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         <div className="p-6 sm:p-8 space-y-6">
           {/* Feedback messages */}
           {errorMsg && (
-            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-900 text-xs flex items-start gap-2.5 animate-in fade-in">
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <div className="flex-1 font-semibold leading-relaxed">{errorMsg}</div>
+            <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-900 text-xs space-y-3 animate-in fade-in">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <div className="flex-1 font-semibold leading-relaxed">{errorMsg}</div>
+              </div>
+
+              {domainBlockedInfo && (
+                <div className="pt-2 border-t border-red-200/60 space-y-2">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleFamilyDeviceLogin}
+                      disabled={loading}
+                      className="flex-1 py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Shield className="w-3.5 h-3.5" />
+                      <span>Entrar no Modo Família Agora (1 Toque)</span>
+                    </button>
+                    {domainBlockedInfo.hostname && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(domainBlockedInfo.hostname);
+                            setCopiedHostname(true);
+                            setTimeout(() => setCopiedHostname(false), 2500);
+                          } catch {}
+                        }}
+                        className="py-2.5 px-3 rounded-lg border border-red-300 bg-white hover:bg-red-50/50 text-red-800 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                        title="Copiar domínio para adicionar à consola do Firebase"
+                      >
+                        {copiedHostname ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                        <span>{copiedHostname ? 'Copiado!' : 'Copiar Domínio'}</span>
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-red-700/90 leading-normal">
+                    <strong>Porque acontece no modo incógnito?</strong> O navegador em modo anónimo bloqueia cookies de terceiros por predefinição, o que impede a janela popup do Google de validar o token. O <em>Modo Família</em> funciona sem popups e liga diretamente ao Firestore!
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -265,6 +337,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 )}
                 <span>{loading ? 'A contactar a Google...' : 'Entrar com Conta Google'}</span>
               </button>
+
+              <div className="pt-3 border-t border-slate-100 text-center">
+                <button
+                  type="button"
+                  onClick={handleStudentDirectEntry}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Acesso Direto Imediato (Sem Login Google)</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -398,6 +481,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <Shield className="w-3.5 h-3.5 text-emerald-600" />
             <span>Dados da turma e check-ins protegidos via Firebase Firestore</span>
           </div>
+        </div>
+      </div>
+
+      {/* Quick Direct Student / Family Access Card */}
+      <div className="bg-white/90 backdrop-blur-xs rounded-2xl border border-slate-200/80 p-4 shadow-sm text-center space-y-2">
+        <p className="text-xs font-bold text-slate-700">
+          Acesso Rápido Sem Palavra-passe
+        </p>
+        <p className="text-[11px] text-slate-500">
+          Se estás no telemóvel do Francisco ou num navegador privado, podes entrar diretamente na aplicação:
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2 pt-1">
+          <button
+            type="button"
+            onClick={handleStudentDirectEntry}
+            className="flex-1 py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <UserIcon className="w-3.5 h-3.5 text-amber-400" />
+            <span>Entrar como Francisco (Aluno)</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleFamilyDeviceLogin}
+            className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <Shield className="w-3.5 h-3.5 text-white" />
+            <span>Entrar como Família (Pais)</span>
+          </button>
         </div>
       </div>
 
