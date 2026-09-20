@@ -44,6 +44,8 @@ export interface SchoolTask {
   studyPlanDaysBefore?: number;
   studySessions?: StudySession[];
   checkIn?: CheckInRecord;
+  attachmentPhotoUrl?: string; // Photo of notebook/board converted via OCR
+  handwrittenTranscription?: string; // Digital transcription of manual notes
   academicYear?: string; // e.g. "2026/2027"
   createdAt: string;
 }

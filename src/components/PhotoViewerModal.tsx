@@ -6,6 +6,8 @@ interface PhotoViewerModalProps {
   onClose: () => void;
   photoUrl: string | null;
   title: string;
+  headerTitle?: string;
+  headerIcon?: React.ReactNode;
 }
 
 export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
@@ -13,6 +15,8 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
   onClose,
   photoUrl,
   title,
+  headerTitle,
+  headerIcon,
 }) => {
   if (!isOpen || !photoUrl) return null;
 
@@ -29,10 +33,10 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
         {/* Header */}
         <div className="bg-slate-900 px-5 py-3.5 border-b border-slate-800 flex items-center justify-between text-white">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            {headerIcon || <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
             <div>
               <h3 className="font-bold text-sm sm:text-base leading-tight">
-                Comprovativo Fotográfico de Check-in
+                {headerTitle || 'Comprovativo Fotográfico de Check-in'}
               </h3>
               <p className="text-xs text-slate-400 truncate max-w-sm sm:max-w-md">
                 {title}
