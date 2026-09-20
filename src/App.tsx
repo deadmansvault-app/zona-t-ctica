@@ -181,7 +181,7 @@ export default function App() {
       setAlerts((prev) => [incomingAlert, ...prev.filter((a) => a.id !== incomingAlert.id)]);
       playAlertChime();
       sendBrowserNotification(
-        'Check-in Concluído! (Foco 9º B)',
+        'Check-in Concluído! (Zona de Treino)',
         `Check-in de ${incomingAlert.taskTitle} concluído por ${incomingAlert.authorName || 'Francisco'}`
       );
     });
@@ -305,7 +305,7 @@ export default function App() {
     setAlerts((prev) => [alertData, ...prev.filter((a) => a.id !== alertData.id)]);
     playAlertChime();
     sendBrowserNotification(
-      'Check-in Concluído! (Foco 9º B)',
+      'Check-in Concluído! (Zona de Treino)',
       `${settings.studentName || 'O Francisco'} concluiu ${checkInTask.title}!`
     );
     await broadcastCheckInAlert(alertData);
@@ -404,10 +404,10 @@ export default function App() {
         <div className="text-center space-y-3">
           <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-sm font-extrabold text-slate-800">
-            A carregar Foco Escolar 9º B...
+            A carregar Zona de Treino...
           </p>
           <p className="text-xs text-slate-500">
-            Escola Básica António Gedeão • A verificar sessão
+            Acesso Reservado • A verificar sessão
           </p>
         </div>
       </div>
@@ -427,7 +427,7 @@ export default function App() {
           />
         </div>
         <footer className="border-t border-slate-200 bg-white py-3.5 px-4 text-center text-xs text-slate-500">
-          <p>Foco 9º B • Turma do Francisco • Escola Básica António Gedeão • Acesso Reservado</p>
+          <p>Zona de Treino • Acesso Familiar Reservado</p>
         </footer>
       </div>
     );
@@ -549,7 +549,7 @@ export default function App() {
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-red-600" />
-            <span>Foco 9º B • Turma do Francisco • Escola Básica António Gedeão</span>
+            <span>Zona de Treino • Organização & Estudo</span>
           </p>
           <p className="text-[11px] text-slate-400">
             Andebol: Segundas, Quartas e Sextas (20h-22h) • "E Pluribus Unum"

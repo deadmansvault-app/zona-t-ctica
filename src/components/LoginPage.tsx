@@ -142,13 +142,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-600/10 border border-red-500/30 text-red-500 text-xs font-bold shadow-xs">
           <Sparkles className="w-3.5 h-3.5 text-red-500" />
-          <span>
-            Área Reservada • {settings?.schoolName ? settings.schoolName.replace('Escola Básica ', 'EB ') : 'EB António Gedeão'}
-            {settings?.academicYear ? ` (${settings.academicYear})` : ''}
-          </span>
+          <span>Área Reservada • Acesso Familiar</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-          Foco Escolar <span className="text-red-600">{settings?.studentClass || '9º B'}</span>
+          Zona de Treino
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto">
           Inicia sessão para aceder ao horário, trabalhos de casa, preparação da mochila e check-ins com fotografia.

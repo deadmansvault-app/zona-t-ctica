@@ -114,7 +114,7 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
 
   const handleUnlock = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pinInput === settings.parentPin || pinInput === '1904') {
+    if (pinInput === settings.parentPin || pinInput === '290912') {
       setIsUnlocked(true);
       setPinError(false);
     } else {
@@ -227,7 +227,7 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
           ) : (
             <span className="text-xs font-semibold text-amber-300 bg-amber-950/50 border border-amber-800/60 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5" />
-              <span>Protegido por Código PIN (Padrão: 1904)</span>
+              <span>Protegido por Código PIN</span>
             </span>
           )}
         </div>
@@ -258,13 +258,13 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
                   setPinInput(e.target.value);
                   setPinError(false);
                 }}
-                placeholder="Introduz o PIN (ex: 1904)"
+                placeholder="Introduz o PIN"
                 className="w-full text-center text-lg tracking-widest font-black border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:outline-hidden"
               />
               {pinError && (
                 <p className="text-xs font-bold text-red-600 mt-1.5 flex items-center justify-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5" />
-                  <span>Código PIN incorreto. O código padrão é 1904.</span>
+                  <span>Código PIN incorreto. Tenta novamente.</span>
                 </p>
               )}
             </div>
@@ -277,10 +277,6 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
               <span>Desbloquear</span>
             </button>
           </form>
-
-          <p className="text-[11px] text-slate-400">
-            Dica: O PIN padrão de fábrica é <strong>1904</strong> (ano de fundação do Benfica).
-          </p>
         </div>
       ) : (
         /* UNLOCKED PARENT DASHBOARD */

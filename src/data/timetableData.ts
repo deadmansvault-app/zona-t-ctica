@@ -171,7 +171,7 @@ export const HANDBALL_TRAINING = {
 export const DEFAULT_SETTINGS: AppSettings = {
   greenDaysThreshold: 5, // > 5 dias: Verde
   yellowDaysThreshold: 3, // 3 a 5 dias: Amarelo
-  parentPin: '1904', // Ano de fundação do Glorioso SLB
+  parentPin: '290912',
   studentName: 'Francisco',
   favoriteTeam: 'Benfica',
   academicYear: '2026/2027',

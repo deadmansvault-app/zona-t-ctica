@@ -77,7 +77,7 @@ export interface ScheduleItem {
 export interface AppSettings {
   greenDaysThreshold: number; // e.g. > 5 days
   yellowDaysThreshold: number; // e.g. 3 to 5 days
-  parentPin: string; // Default "1904"
+  parentPin: string; // Default "290912"
   studentName: string;
   favoriteTeam: string;
   academicYear: string; // e.g. "2026/2027"

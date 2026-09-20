@@ -81,7 +81,7 @@ export function getTaskGoogleCalendarUrl(task: SchoolTask, schoolName = 'Escola 
     teacher ? `Professor(a): ${teacher}` : '',
     `Descrição: ${task.description}`,
     task.studySessions?.length ? `\nSessões de Estudo Planeadas:\n` + task.studySessions.map(s => `- ${s.date} (${s.timeRange}): ${s.topic}`).join('\n') : '',
-    `\nFoco Escolar - Turma 9º B`,
+    `\nZona de Treino`,
   ].filter(Boolean).join('\n');
 
   return createGoogleCalendarUrl({
@@ -108,8 +108,8 @@ export function generateIcsCalendar(
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Foco Escolar//Agenda Escolar//PT',
-    `X-WR-CALNAME:Foco Escolar - ${studentName}`,
+    'PRODID:-//Zona de Treino//Agenda Escolar//PT',
+    `X-WR-CALNAME:Zona de Treino - ${studentName}`,
     'X-WR-TIMEZONE:Europe/Lisbon',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
@@ -217,13 +217,13 @@ export function exportAllToIcs(tasks: SchoolTask[], schoolName = 'Escola Básica
     academicYear: '2026/2027',
     greenDaysThreshold: 5,
     yellowDaysThreshold: 3,
-    parentPin: '1904',
+    parentPin: '290912',
     favoriteTeam: 'SLB',
     allowedEmails: [],
     availableAcademicYears: ['2026/2027', '2027/2028'],
   };
   const ics = generateIcsCalendar(tasks, [], dummySettings);
-  downloadIcsFile('foco_escolar_calendario.ics', ics);
+  downloadIcsFile('zona_de_treino_calendario.ics', ics);
 }
 
 /**

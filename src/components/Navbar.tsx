@@ -4,7 +4,6 @@ import {
   Shield,
   Clock,
   BookOpen,
-  Sparkles,
   CalendarDays,
   Cloud,
   LogIn,
@@ -84,23 +83,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-red-600 to-red-800 text-white flex items-center justify-center shadow-md shadow-red-200 border border-red-500 relative flex-shrink-0">
               <span className="font-extrabold text-sm sm:text-base tracking-tighter">SLB</span>
-              <span className="absolute -bottom-1 -right-1 text-[10px] bg-amber-400 text-slate-950 font-bold px-1 rounded-full border border-white">
-                {settings?.studentClass || '9ºB'}
-              </span>
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-1.5">
-                  Foco Escolar <span className="text-red-600 font-black">{settings?.studentClass || '9º B'}</span>
+                <h1 className="text-base sm:text-xl font-extrabold text-slate-900 tracking-tight">
+                  Zona de Treino
                 </h1>
-                <span className="hidden md:inline-flex text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full">
-                  {settings?.schoolName ? settings.schoolName.replace('Escola Básica ', 'EB ') : 'EB António Gedeão'}
-                </span>
-                {settings?.academicYear && (
-                  <span className="hidden lg:inline-flex text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md">
-                    {settings.academicYear}
-                  </span>
-                )}
               </div>
               <p className="text-xs text-slate-500 capitalize flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -147,7 +135,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition-colors border-b border-slate-100"
                     >
                       <Shield className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Área dos Pais & Configurações</span>
+                      <span>Área dos Pais</span>
                     </button>
                     <button
                       onClick={() => {
@@ -248,7 +236,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         });
 
                         const waText = encodeURIComponent(
-                          `✅ *Check-in Concluído (Foco 9º B)*\n` +
+                          `✅ *Check-in Concluído (Zona de Treino)*\n` +
                             `📚 *${sub.name}*: "${al.taskTitle}"\n` +
                             `👤 Aluno: ${al.authorName || 'Francisco'}\n` +
                             `🕒 Hora: ${timeStr} (${dateStr})\n` +
@@ -353,16 +341,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
 
             <button
-              id="btn-ai-assistant"
-              onClick={onOpenAiModal}
-              className="flex items-center gap-1 sm:gap-1.5 text-xs font-black text-amber-950 bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 hover:from-amber-300 hover:to-amber-200 px-2.5 sm:px-3 py-2 rounded-xl transition-all border border-amber-300 shadow-2xs active:scale-95"
-              title="Assistente AI: Criar TPC, Teste ou Trabalho de Grupo por texto"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-700 animate-pulse" />
-              <span className="tracking-wide">AI</span>
-            </button>
-
-            <button
               id="btn-add-task-nav"
               onClick={onOpenAddTask}
               className="flex items-center gap-1 sm:gap-2 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl shadow-xs transition-all shadow-red-200"
@@ -448,7 +426,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             <Shield className="w-4 h-4 text-amber-400" />
-            <span>Área dos Pais & Fotos</span>
+            <span>Área dos Pais</span>
           </button>
         </nav>
       </div>

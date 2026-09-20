@@ -437,6 +437,7 @@ export async function loadSettings(): Promise<AppSettings> {
           ...cloudSet,
           // If the studentName in cloud is still the old Afonso, update to Francisco
           studentName: cloudSet.studentName === 'Afonso' ? 'Francisco' : (cloudSet.studentName || DEFAULT_SETTINGS.studentName),
+          parentPin: (cloudSet.parentPin && cloudSet.parentPin !== '1904') ? cloudSet.parentPin : '290912',
           allowedEmails: cloudSet.allowedEmails && cloudSet.allowedEmails.length > 0 ? cloudSet.allowedEmails : DEFAULT_SETTINGS.allowedEmails,
         };
         try {
@@ -462,6 +463,7 @@ export async function loadSettings(): Promise<AppSettings> {
             ...DEFAULT_SETTINGS,
             ...val,
             studentName: val.studentName === 'Afonso' ? 'Francisco' : (val.studentName || DEFAULT_SETTINGS.studentName),
+            parentPin: (val.parentPin && val.parentPin !== '1904') ? val.parentPin : '290912',
             allowedEmails: val.allowedEmails && val.allowedEmails.length > 0 ? val.allowedEmails : DEFAULT_SETTINGS.allowedEmails,
           };
           resolve(merged);
@@ -480,6 +482,7 @@ export async function loadSettings(): Promise<AppSettings> {
           ...DEFAULT_SETTINGS,
           ...val,
           studentName: val.studentName === 'Afonso' ? 'Francisco' : (val.studentName || DEFAULT_SETTINGS.studentName),
+          parentPin: (val.parentPin && val.parentPin !== '1904') ? val.parentPin : '290912',
           allowedEmails: val.allowedEmails && val.allowedEmails.length > 0 ? val.allowedEmails : DEFAULT_SETTINGS.allowedEmails,
         };
       }
@@ -659,7 +662,7 @@ export async function exportAllData(): Promise<string> {
   ]);
 
   const backup = {
-    appName: 'Foco 9º B - Agenda Escolar',
+    appName: 'Zona de Treino',
     version: '1.0',
     exportDate: new Date().toISOString(),
     tasks,
