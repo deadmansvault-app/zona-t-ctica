@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Plus,
@@ -7,20 +7,9 @@ import {
   BookOpen,
   Clock,
   Dumbbell,
-  Bot,
   Users,
   Wand2,
-  Camera,
-  Upload,
-  Image as ImageIcon,
   FileText,
-  Copy,
-  Check,
-  RotateCcw,
-  AlertCircle,
-  CheckCircle2,
-  Loader2,
-  Paperclip,
 } from 'lucide-react';
 import { SchoolTask, TaskType } from '../types';
 import { SUBJECTS } from '../data/timetableData';
@@ -41,8 +30,8 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
   initialDueDate,
   academicYear,
 }) => {
-  // Mode: 'photo' | 'manual' | 'text'
-  const [creationMode, setCreationMode] = useState<'photo' | 'manual' | 'text'>('photo');
+  // Mode: 'manual' | 'text'
+  const [creationMode, setCreationMode] = useState<'manual' | 'text'>('manual');
 
   // Core Form State
   const [title, setTitle] = useState('');
@@ -68,184 +57,13 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
   const [sessionsCount, setSessionsCount] = useState(3);
   const [daysBefore, setDaysBefore] = useState(5);
 
-  // Photo & OCR State
-  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
-  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
-  const [photoMimeType, setPhotoMimeType] = useState<string>('image/jpeg');
-  const [isProcessingOcr, setIsProcessingOcr] = useState(false);
-  const [ocrError, setOcrError] = useState<string | null>(null);
-  const [ocrSuccess, setOcrSuccess] = useState(false);
-  const [transcribedText, setTranscribedText] = useState<string | null>(null);
-  const [isCopied, setIsCopied] = useState(false);
-  const [attachPhotoToTask, setAttachPhotoToTask] = useState(true);
-
-  // Text AI Helper State
+  // Text Helper State
   const [aiPromptText, setAiPromptText] = useState('');
   const [aiSuccessMsg, setAiSuccessMsg] = useState('');
 
-  // Refs for file inputs
-  const cameraInputRef = useRef<HTMLInputElement | null>(null);
-  const galleryInputRef = useRef<HTMLInputElement | null>(null);
-
   if (!isOpen) return null;
 
-  // Compress & prepare image client-side to ensure swift, lightweight API calls
-  const processImageFile = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      setOcrError('Por favor seleciona um ficheiro de imagem válido (JPG, PNG, HEIC, etc.).');
-      return;
-    }
-
-    setOcrError(null);
-    setOcrSuccess(false);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const MAX_DIM = 1600;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height && width > MAX_DIM) {
-          height = Math.round((height * MAX_DIM) / width);
-          width = MAX_DIM;
-        } else if (height > MAX_DIM) {
-          width = Math.round((width * MAX_DIM) / height);
-          height = MAX_DIM;
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.86);
-          const cleanBase64 = compressedDataUrl.split(',')[1];
-          setPhotoDataUrl(compressedDataUrl);
-          setPhotoBase64(cleanBase64);
-          setPhotoMimeType('image/jpeg');
-        } else {
-          const rawDataUrl = e.target?.result as string;
-          setPhotoDataUrl(rawDataUrl);
-          setPhotoBase64(rawDataUrl.split(',')[1]);
-          setPhotoMimeType(file.type || 'image/jpeg');
-        }
-      };
-      img.src = e.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processImageFile(file);
-    }
-  };
-
-  // Drag and Drop
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      processImageFile(file);
-    }
-  };
-
-  // Convert handwritten photo to digital text using free Gemini OCR backend
-  const handleConvertHandwriting = async () => {
-    if (!photoBase64) return;
-
-    setIsProcessingOcr(true);
-    setOcrError(null);
-    setOcrSuccess(false);
-
-    try {
-      const response = await fetch('/api/gemini/ocr-handwriting', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageBase64: photoBase64,
-          mimeType: photoMimeType,
-        }),
-      });
-
-      const contentType = response.headers.get('content-type') || '';
-      let result: any = null;
-
-      if (contentType.includes('application/json')) {
-        result = await response.json();
-      } else {
-        const text = await response.text();
-        console.error('Resposta não-JSON:', response.status, text.slice(0, 150));
-        throw new Error(
-          'O servidor de IA está a reiniciar ou indisponível temporariamente. Por favor tenta novamente em instantes.'
-        );
-      }
-
-      if (!response.ok || !result.success) {
-        throw new Error(
-          result?.error || 'Não foi possível analisar a caligrafia na fotografia.'
-        );
-      }
-
-      const data = result.data;
-
-      // Update form fields with recognized data
-      if (data.title) setTitle(data.title);
-      if (data.subjectCode && SUBJECTS[data.subjectCode]) {
-        setSubjectCode(data.subjectCode);
-      }
-      if (data.type === 'tpc' || data.type === 'trabalho' || data.type === 'teste') {
-        setType(data.type);
-        if (data.type === 'teste' || data.type === 'trabalho') {
-          setGeneratePlan(true);
-        }
-      }
-      if (data.dueDate) {
-        setDueDate(data.dueDate);
-      }
-      if (data.description) {
-        setDescription(data.description);
-      }
-      if (data.transcription) {
-        setTranscribedText(data.transcription);
-      }
-
-      setOcrSuccess(true);
-    } catch (err: any) {
-      console.error('Falha no OCR:', err);
-      setOcrError(
-        err.message ||
-          'Ocorreu um erro ao converter o texto manuscrito. Podes tentar com outra foto ou preencher manualmente.'
-      );
-    } finally {
-      setIsProcessingOcr(false);
-    }
-  };
-
-  const handleCopyTranscription = () => {
-    if (!transcribedText) return;
-    navigator.clipboard.writeText(transcribedText);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
-  };
-
-  // Reset Photo
-  const handleClearPhoto = () => {
-    setPhotoDataUrl(null);
-    setPhotoBase64(null);
-    setTranscribedText(null);
-    setOcrSuccess(false);
-    setOcrError(null);
-  };
-
-  // Text AI Helper inside modal
+  // Text Helper inside modal
   const handleApplyAiText = () => {
     if (!aiPromptText.trim()) return;
 
@@ -276,7 +94,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
     setTitle(aiPromptText.slice(0, 60).trim());
     setDescription(aiPromptText.trim());
 
-    setAiSuccessMsg('✨ Campos preenchidos automaticamente com AI!');
+    setAiSuccessMsg('✨ Campos preenchidos automaticamente!');
     setTimeout(() => setAiSuccessMsg(''), 3000);
   };
 
@@ -324,8 +142,6 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
       dueDate,
       studyPlanDaysBefore: generatePlan || type === 'teste' ? daysBefore : undefined,
       studySessions,
-      attachmentPhotoUrl: attachPhotoToTask && photoDataUrl ? photoDataUrl : undefined,
-      handwrittenTranscription: transcribedText || undefined,
       academicYear: academicYear || undefined,
       createdAt: new Date().toISOString(),
     };
@@ -337,9 +153,6 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
     setTitle('');
     setDescription('');
     setType('tpc');
-    setPhotoDataUrl(null);
-    setPhotoBase64(null);
-    setTranscribedText(null);
   };
 
   return (
@@ -370,19 +183,6 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
         <div className="flex border-b border-slate-200 bg-slate-50/80 p-1.5 gap-1.5 flex-shrink-0">
           <button
             type="button"
-            onClick={() => setCreationMode('photo')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-              creationMode === 'photo'
-                ? 'bg-white text-red-700 shadow-xs border border-red-200 font-extrabold'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <Camera className="w-3.5 h-3.5 text-red-600" />
-            <span>Foto & Leitor IA</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setCreationMode('manual')}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
               creationMode === 'manual'
@@ -404,214 +204,13 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-            <span>Colar Texto</span>
+            <span>Colar Texto / Teams</span>
           </button>
         </div>
 
         {/* Scrollable Container */}
         <div className="overflow-y-auto p-4 sm:p-5 space-y-4 flex-1">
-          {/* PHOTO OCR MODE SECTION */}
-          {creationMode === 'photo' && (
-            <div className="space-y-3.5 bg-gradient-to-br from-red-50/50 via-white to-amber-50/30 p-4 rounded-2xl border border-red-200/80 shadow-2xs">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-red-600" />
-                    <span>Fotografar Caderno ou Enunciado</span>
-                  </h4>
-                  <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                    Tira uma foto ao caderno, ficha ou quadro. A Inteligência Artificial lê o texto manual e preenche os dados da tarefa automaticamente.
-                  </p>
-                </div>
-              </div>
-
-              {/* Hidden file inputs */}
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                ref={cameraInputRef}
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              <input
-                type="file"
-                accept="image/*"
-                ref={galleryInputRef}
-                onChange={handleFileChange}
-                className="hidden"
-              />
-
-              {/* Photo Upload / Camera Area */}
-              {!photoDataUrl ? (
-                <div
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={handleDrop}
-                  className="border-2 border-dashed border-red-300 hover:border-red-500 bg-white/80 rounded-xl p-4 sm:p-5 text-center transition-all cursor-pointer group"
-                  onClick={() => galleryInputRef.current?.click()}
-                >
-                  <div className="w-12 h-12 mx-auto rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform shadow-xs">
-                    <Camera className="w-6 h-6" />
-                  </div>
-                  <p className="text-xs sm:text-sm font-bold text-slate-800">
-                    Arrasta a foto para aqui ou escolhe uma das opções:
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Suporta imagens de cadernos escolares, fichas, livros ou quadros
-                  </p>
-
-                  <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        cameraInputRef.current?.click();
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition-all"
-                    >
-                      <Camera className="w-4 h-4" />
-                      <span>Tirar Foto com a Câmara</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        galleryInputRef.current?.click();
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold active:scale-95 transition-all border border-slate-200"
-                    >
-                      <Upload className="w-4 h-4 text-slate-600" />
-                      <span>Escolher da Galeria / Ficheiros</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* Photo Selected Preview & Actions */
-                <div className="space-y-3 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-                  <div className="flex flex-col sm:flex-row items-center gap-3">
-                    <div className="relative w-full sm:w-36 h-36 rounded-lg overflow-hidden border border-slate-200 bg-slate-900 flex-shrink-0">
-                      <img
-                        src={photoDataUrl}
-                        alt="Anotação do caderno"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute top-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded-md font-semibold flex items-center gap-1">
-                        <ImageIcon className="w-3 h-3" />
-                        <span>Foto</span>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 w-full space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-extrabold text-slate-800 flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Foto Carregada</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={handleClearPhoto}
-                          className="text-xs text-slate-400 hover:text-red-600 flex items-center gap-1 transition-colors"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                          <span>Mudar Foto</span>
-                        </button>
-                      </div>
-
-                      <p className="text-[11px] text-slate-600">
-                        Clica no botão abaixo para a Inteligência Artificial ler e converter a caligrafia manual em texto digital:
-                      </p>
-
-                      <button
-                        type="button"
-                        onClick={handleConvertHandwriting}
-                        disabled={isProcessingOcr}
-                        className="w-full py-2.5 px-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 active:scale-98 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm shadow-red-200 transition-all disabled:opacity-60 cursor-pointer"
-                      >
-                        {isProcessingOcr ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>A converter texto manual com IA...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Wand2 className="w-4 h-4" />
-                            <span>Converter Manuscrito para Digital</span>
-                          </>
-                        )}
-                      </button>
-
-                      <label className="flex items-center gap-1.5 cursor-pointer pt-1">
-                        <input
-                          type="checkbox"
-                          checked={attachPhotoToTask}
-                          onChange={(e) => setAttachPhotoToTask(e.target.checked)}
-                          className="rounded-sm text-red-600 focus:ring-red-500 w-3.5 h-3.5 cursor-pointer"
-                        />
-                        <span className="text-[11px] text-slate-700 flex items-center gap-1 font-medium">
-                          <Paperclip className="w-3 h-3 text-slate-500" />
-                          <span>Anexar esta foto à tarefa para consulta futura</span>
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* OCR Error Message */}
-                  {ocrError && (
-                    <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="font-bold">Aviso na Conversão</p>
-                        <p className="text-[11px] text-red-600 mt-0.5">{ocrError}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* OCR Success & Transcribed Text Box */}
-                  {ocrSuccess && (
-                    <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl space-y-2 animate-in fade-in">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-black text-emerald-800 flex items-center gap-1.5">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          <span>Texto Manuscrito Digitalizado com Sucesso!</span>
-                        </span>
-                        {transcribedText && (
-                          <button
-                            type="button"
-                            onClick={handleCopyTranscription}
-                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 bg-emerald-100/70 hover:bg-emerald-200 px-2 py-0.5 rounded-lg transition-colors"
-                          >
-                            {isCopied ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-700" />
-                                <span>Copiado!</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                <span>Copiar Texto</span>
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
-
-                      {transcribedText && (
-                        <div className="bg-white p-2.5 rounded-lg border border-emerald-200 text-xs text-slate-700 max-h-32 overflow-y-auto whitespace-pre-wrap leading-relaxed font-sans shadow-2xs">
-                          {transcribedText}
-                        </div>
-                      )}
-
-                      <p className="text-[10px] text-emerald-700 font-medium">
-                        ✨ Os campos do formulário abaixo foram preenchidos automaticamente. Podes rever ou editar os detalhes antes de gravar.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TEXT AI HELPER SECTION */}
+          {/* TEXT HELPER SECTION */}
           {creationMode === 'text' && (
             <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-2xl space-y-2.5 animate-in slide-in-from-top-1">
               <label className="block text-xs font-bold text-amber-950">

@@ -23,8 +23,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onToggleSession,
 }) => {
   const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [showAttachmentModal, setShowAttachmentModal] = useState(false);
-  const [showTranscription, setShowTranscription] = useState(false);
   const subject = SUBJECTS[task.subjectCode] || {
     name: task.subjectCode,
     code: task.subjectCode,
@@ -137,55 +135,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               </p>
             )}
           </div>
-
-          {/* Photo Attachment & OCR Transcription Box */}
-          {(task.attachmentPhotoUrl || task.handwrittenTranscription) && (
-            <div className="mb-3.5 bg-amber-50/70 border border-amber-200/90 rounded-xl p-2.5 space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0">
-                    <Camera className="w-3.5 h-3.5" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-amber-950 block leading-tight">
-                      Caderno / Enunciado Fotografado
-                    </span>
-                    <span className="text-[10px] text-amber-800">
-                      Convertido com IA
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  {task.handwrittenTranscription && (
-                    <button
-                      type="button"
-                      onClick={() => setShowTranscription(!showTranscription)}
-                      className="px-2 py-1 text-[11px] font-bold text-amber-900 hover:bg-amber-100 rounded-lg transition-colors border border-amber-300"
-                    >
-                      {showTranscription ? 'Ocultar Texto' : 'Ver Texto'}
-                    </button>
-                  )}
-                  {task.attachmentPhotoUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAttachmentModal(true)}
-                      className="px-2.5 py-1 text-[11px] font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center gap-1 shadow-2xs transition-colors"
-                    >
-                      <Eye className="w-3 h-3" />
-                      <span>Ver Foto</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {showTranscription && task.handwrittenTranscription && (
-                <div className="bg-white p-2 rounded-lg border border-amber-200 text-xs text-slate-700 whitespace-pre-wrap max-h-28 overflow-y-auto animate-in fade-in">
-                  {task.handwrittenTranscription}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Due date and study sessions if applicable */}
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 mb-4 pl-1">
@@ -351,56 +300,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               <button
                 onClick={() => setShowPhotoModal(false)}
                 className="bg-red-600 text-white font-bold px-3 py-1.5 rounded-lg hover:bg-red-700"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* High-res original notebook / assignment attachment modal */}
-      {showAttachmentModal && task.attachmentPhotoUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Camera className="w-4 h-4 text-amber-400" />
-                <div>
-                  <p className="text-xs text-slate-400 font-bold uppercase">
-                    Caderno / Enunciado Original • {task.subjectCode}
-                  </p>
-                  <h4 className="text-sm font-extrabold">{task.title}</h4>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowAttachmentModal(false)}
-                className="text-white hover:text-red-400 p-1 rounded-lg"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-4 bg-slate-950 flex items-center justify-center flex-1 overflow-hidden">
-              <img
-                src={task.attachmentPhotoUrl}
-                alt="Foto do caderno original"
-                className="max-h-[65vh] w-auto object-contain rounded-lg shadow-md"
-              />
-            </div>
-            {task.handwrittenTranscription && (
-              <div className="p-3 bg-amber-50/50 border-t border-amber-200 max-h-36 overflow-y-auto">
-                <p className="text-[11px] font-bold text-amber-900 uppercase tracking-wider mb-1">
-                  Texto Transcrito com IA:
-                </p>
-                <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
-                  {task.handwrittenTranscription}
-                </p>
-              </div>
-            )}
-            <div className="p-3 bg-slate-100 border-t border-slate-200 flex items-center justify-end">
-              <button
-                onClick={() => setShowAttachmentModal(false)}
-                className="bg-red-600 text-white font-bold px-4 py-1.5 rounded-xl hover:bg-red-700 text-xs transition-colors"
               >
                 Fechar
               </button>
