@@ -151,7 +151,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                       Caderno / Enunciado Fotografado
                     </span>
                     <span className="text-[10px] text-amber-800">
-                      Convertido com IA Gratuita
+                      Convertido com IA
                     </span>
                   </div>
                 </div>

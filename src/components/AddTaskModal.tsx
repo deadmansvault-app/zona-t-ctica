@@ -175,11 +175,22 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
         }),
       });
 
-      const result = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      let result: any = null;
+
+      if (contentType.includes('application/json')) {
+        result = await response.json();
+      } else {
+        const text = await response.text();
+        console.error('Resposta não-JSON:', response.status, text.slice(0, 150));
+        throw new Error(
+          'O servidor de IA está a reiniciar ou indisponível temporariamente. Por favor tenta novamente em instantes.'
+        );
+      }
 
       if (!response.ok || !result.success) {
         throw new Error(
-          result.error || 'Não foi possível analisar a caligrafia na fotografia.'
+          result?.error || 'Não foi possível analisar a caligrafia na fotografia.'
         );
       }
 
@@ -368,9 +379,6 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
           >
             <Camera className="w-3.5 h-3.5 text-red-600" />
             <span>Foto & Leitor IA</span>
-            <span className="hidden sm:inline-block text-[10px] bg-red-100 text-red-800 px-1.5 py-0.2 rounded-full font-bold">
-              Grátis
-            </span>
           </button>
 
           <button
@@ -412,7 +420,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     <span>Fotografar Caderno ou Enunciado</span>
                   </h4>
                   <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                    Tira uma foto ao caderno, ficha ou quadro. A IA lê o texto manual e converte tudo em formato digital automaticamente (serviço gratuito).
+                    Tira uma foto ao caderno, ficha ou quadro. A Inteligência Artificial lê o texto manual e preenche os dados da tarefa automaticamente.
                   </p>
                 </div>
               </div>
@@ -527,7 +535,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                         ) : (
                           <>
                             <Wand2 className="w-4 h-4" />
-                            <span>Converter Manuscrito para Digital (IA Gratuita)</span>
+                            <span>Converter Manuscrito para Digital</span>
                           </>
                         )}
                       </button>
