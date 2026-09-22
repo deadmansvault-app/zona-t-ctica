@@ -19,6 +19,7 @@ import {
   AppSettings,
   CheckInRecord,
   CheckInAlert,
+  ActivityLog,
 } from './types';
 import { DEFAULT_SETTINGS, INITIAL_SCHEDULE } from './data/timetableData';
 import {
@@ -43,6 +44,9 @@ import {
   broadcastCheckInAlert,
   loadAlerts,
   subscribeToRemoteAlerts,
+  loadActivityLogs,
+  recordActivityLog,
+  subscribeToRemoteLogs,
 } from './lib/storage';
 import {
   auth,
@@ -63,6 +67,7 @@ export default function App() {
   const [backpackChecked, setBackpackChecked] = useState<string[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [alerts, setAlerts] = useState<CheckInAlert[]>([]);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [currentAlert, setCurrentAlert] = useState<CheckInAlert | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<{ url: string; title: string } | null>(null);
 
@@ -153,17 +158,19 @@ export default function App() {
     async function init() {
       try {
         const tDate = getNextSchoolDayDateStr();
-        const [loadedTasks, loadedSchedule, loadedSettings, loadedAlerts, bItems] = await Promise.all([
+        const [loadedTasks, loadedSchedule, loadedSettings, loadedAlerts, loadedLogs, bItems] = await Promise.all([
           loadTasks(),
           loadSchedule(),
           loadSettings(),
           loadAlerts(),
+          loadActivityLogs(),
           loadBackpackItems(tDate),
         ]);
         setTasks(loadedTasks);
         setSchedule(loadedSchedule);
         setSettings(loadedSettings);
         setAlerts(loadedAlerts);
+        setLogs(loadedLogs);
         setBackpackChecked(bItems);
       } catch (err) {
         console.error('Erro a inicializar dados:', err);
@@ -172,6 +179,15 @@ export default function App() {
       }
     }
     init();
+  }, []);
+
+  // Listen to incoming remote activity logs
+  useEffect(() => {
+    const unsubscribeLogs = subscribeToRemoteLogs((incomingLogs) => {
+      setLogs(incomingLogs);
+    });
+
+    return () => unsubscribeLogs();
   }, []);
 
   // Listen to incoming real-time check-in alerts (BroadcastChannel + Firestore)
@@ -197,6 +213,13 @@ export default function App() {
       if (u) {
         setIsCloudModalOpen(false);
         setCloudAuthError(null);
+        await recordActivityLog({
+          action: 'login',
+          description: `Sessão iniciada com Google (${u.email})`,
+          userEmail: u.email || undefined,
+          userName: u.displayName || 'Utilizador Google',
+          details: { provider: 'google', email: u.email },
+        });
       }
     } catch (err: any) {
       if (err && (err.isUnauthorizedDomain || err.isPopupBlocked || err.code)) {
@@ -230,6 +253,13 @@ export default function App() {
       if (u) {
         setIsCloudModalOpen(false);
         setCloudAuthError(null);
+        await recordActivityLog({
+          action: 'login',
+          description: `Ligação direta à Nuvem Familiar ativada`,
+          userEmail: u.email || 'familia@local',
+          userName: 'Modo Família',
+          details: { mode: 'direct_family' },
+        });
       }
     } catch (err: any) {
       console.error('Falha na ligação direta da família:', err);
@@ -240,6 +270,12 @@ export default function App() {
 
   const handleLogoutGoogle = async () => {
     try {
+      await recordActivityLog({
+        action: 'logout',
+        description: `Sessão terminada`,
+        userEmail: user?.email || undefined,
+        userName: user?.displayName || 'Utilizador',
+      });
       await logOut();
     } catch (err: any) {
       console.warn('Saída de sessão não concluída:', err?.message || err);
@@ -250,6 +286,7 @@ export default function App() {
   const handleToggleBackpackItem = async (item: string) => {
     const dateKey = targetBackpackDateStr();
     let updated: string[];
+    const isAdding = !backpackChecked.includes(item);
     if (backpackChecked.includes(item)) {
       updated = backpackChecked.filter((i) => i !== item);
     } else {
@@ -257,12 +294,49 @@ export default function App() {
     }
     setBackpackChecked(updated);
     await saveBackpackItems(dateKey, updated);
+
+    recordActivityLog({
+      action: 'backpack_toggle',
+      description: isAdding ? `Mochila: ${item} adicionado/pronto` : `Mochila: ${item} desmarcado`,
+      userName: settings.studentName || 'Francisco',
+      details: { item, checked: isAdding, dateKey },
+    });
   };
 
   const handleAddTask = async (newTask: SchoolTask) => {
     const updated = [newTask, ...tasks];
     setTasks(updated);
     await saveTask(newTask);
+
+    recordActivityLog({
+      action: 'task_create',
+      description: `Nova tarefa criada: ${newTask.title} (${newTask.subjectCode})`,
+      taskId: newTask.id,
+      taskTitle: newTask.title,
+      subjectCode: newTask.subjectCode,
+      userName: settings.studentName || 'Francisco',
+      details: { type: newTask.type, dueDate: newTask.dueDate },
+    });
+  };
+
+  const handleAddMultipleTasks = async (newTasks: SchoolTask[]) => {
+    if (!newTasks || newTasks.length === 0) return;
+    const updated = [...newTasks, ...tasks];
+    setTasks(updated);
+    for (const t of newTasks) {
+      await saveTask(t);
+    }
+
+    recordActivityLog({
+      action: 'task_create',
+      description: `${newTasks.length} novos eventos/tarefas criados em lote`,
+      userName: settings.studentName || 'Francisco',
+      details: {
+        count: newTasks.length,
+        titles: newTasks.map((t) => t.title),
+        types: newTasks.map((t) => t.type),
+      },
+    });
   };
 
   const handleEditTask = async (updatedTask: SchoolTask) => {
@@ -270,12 +344,31 @@ export default function App() {
     setTasks(updated);
     await saveTask(updatedTask);
     setEditingTask(null);
+
+    recordActivityLog({
+      action: 'task_edit',
+      description: `Tarefa editada: ${updatedTask.title}`,
+      taskId: updatedTask.id,
+      taskTitle: updatedTask.title,
+      subjectCode: updatedTask.subjectCode,
+      userName: settings.studentName || 'Francisco',
+      details: { dueDate: updatedTask.dueDate, estimatedMinutes: updatedTask.estimatedMinutes },
+    });
   };
 
   const handleDeleteTask = async (taskId: string) => {
+    const taskToDelete = tasks.find((t) => t.id === taskId);
     const updated = tasks.filter((t) => t.id !== taskId);
     setTasks(updated);
     await deleteTask(taskId);
+
+    recordActivityLog({
+      action: 'task_delete',
+      description: `Tarefa eliminada: ${taskToDelete?.title || taskId}`,
+      taskId,
+      taskTitle: taskToDelete?.title,
+      userName: settings.studentName || 'Francisco',
+    });
   };
 
   const handleConfirmCheckIn = async (record: CheckInRecord) => {
@@ -287,6 +380,25 @@ export default function App() {
     const updatedTasks = tasks.map((t) => (t.id === checkInTask.id ? updatedTask : t));
     setTasks(updatedTasks);
     await Promise.all([saveTask(updatedTask), saveCheckIn(record)]);
+
+    // Check if task was completed on time or overdue
+    const isOverdue = new Date(record.timestamp).getTime() > new Date(`${checkInTask.dueDate}T23:59:59`).getTime();
+
+    // Record activity log for parent analytics
+    recordActivityLog({
+      action: 'task_checkin',
+      description: `Check-in com foto concluído: ${checkInTask.title} (${isOverdue ? 'Com atraso' : 'A tempo'})`,
+      taskId: checkInTask.id,
+      taskTitle: checkInTask.title,
+      subjectCode: checkInTask.subjectCode,
+      userName: settings.studentName || 'Francisco',
+      details: {
+        dueDate: checkInTask.dueDate,
+        isOverdue,
+        hasPhoto: Boolean(record.photoDataUrl),
+        notes: record.notes,
+      },
+    });
 
     // Create and broadcast Check-in Alert to all family devices & tabs
     const alertData: CheckInAlert = {
@@ -360,6 +472,19 @@ export default function App() {
   const handleUpdateSettings = async (newSettings: AppSettings) => {
     setSettings(newSettings);
     await saveSettings(newSettings);
+
+    recordActivityLog({
+      action: 'settings_update',
+      description: `Configurações da aplicação atualizadas`,
+      userName: user?.displayName || 'Encarregado de Educação',
+      userEmail: user?.email || undefined,
+      details: {
+        studentName: newSettings.studentName,
+        alertDaysRed: newSettings.alertDaysRed,
+        alertDaysOrange: newSettings.alertDaysOrange,
+        alertDaysYellow: newSettings.alertDaysYellow,
+      },
+    });
   };
 
   // Open Add Task Modal prefilled with specific date
@@ -526,6 +651,7 @@ export default function App() {
             tasks={tasks}
             settings={settings}
             user={user}
+            logs={logs}
             isLoggingIn={isLoggingIn}
             onLoginGoogle={handleLoginGoogle}
             onLogoutGoogle={handleLogoutGoogle}
@@ -585,6 +711,8 @@ export default function App() {
             setAddTaskInitialDate(undefined);
           }}
           onAddTask={handleAddTask}
+          onAddMultipleTasks={handleAddMultipleTasks}
+          academicYear={settings.academicYear}
         />
       )}
 
@@ -593,7 +721,10 @@ export default function App() {
           isOpen={isAiModalOpen}
           onClose={() => setIsAiModalOpen(false)}
           onAddTask={handleAddTask}
+          onImportTask={handleAddTask}
+          onAddMultipleTasks={handleAddMultipleTasks}
           schoolName={settings.schoolName}
+          academicYear={settings.academicYear}
         />
       )}
 

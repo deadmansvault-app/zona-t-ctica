@@ -26,14 +26,17 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
-import { User } from 'firebase/auth';
-import { SchoolTask, CheckInRecord, AppSettings } from '../types';
+import { SchoolTask, CheckInRecord, AppSettings, ActivityLog } from '../types';
 import { SUBJECTS } from '../data/timetableData';
+import { ParentAnalyticsCharts } from './ParentAnalyticsCharts';
+import { BarChart3 } from 'lucide-react';
+import { AppUser } from '../lib/firebase';
 
 interface ParentHistoryViewProps {
   tasks: SchoolTask[];
   settings: AppSettings;
-  user: User | null;
+  user: AppUser | null;
+  logs?: ActivityLog[];
   isLoggingIn?: boolean;
   onLoginGoogle: () => void;
   onLogoutGoogle: () => void;
@@ -49,6 +52,7 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
   tasks,
   settings,
   user,
+  logs = [],
   isLoggingIn = false,
   onLoginGoogle,
   onLogoutGoogle,
@@ -59,6 +63,7 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
   onImportData,
   onOpenCloudInfo,
 }) => {
+  const [activeParentTab, setActiveParentTab] = useState<'analytics' | 'checkins' | 'settings'>('analytics');
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
@@ -281,8 +286,60 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
       ) : (
         /* UNLOCKED PARENT DASHBOARD */
         <div className="space-y-6">
-          {/* Section 1: Visual Alert Days Configuration */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
+          {/* Subtabs for Parents Area */}
+          <div className="flex items-center gap-1.5 p-1.5 bg-slate-200/70 rounded-2xl max-w-xl overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setActiveParentTab('analytics')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                activeParentTab === 'analytics'
+                  ? 'bg-white text-red-600 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Gráficos & Utilização</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveParentTab('checkins')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                activeParentTab === 'checkins'
+                  ? 'bg-white text-red-600 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              }`}
+            >
+              <Camera className="w-4 h-4" />
+              <span>Fotos & Comprovativos ({filteredTasks.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveParentTab('settings')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                activeParentTab === 'settings'
+                  ? 'bg-white text-red-600 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              }`}
+            >
+              <Sliders className="w-4 h-4" />
+              <span>Configurações & Acessos</span>
+            </button>
+          </div>
+
+          {/* TAB 1: Analytics, Graphs & Overdue Tasks */}
+          {activeParentTab === 'analytics' && (
+            <ParentAnalyticsCharts
+              tasks={tasks}
+              logs={logs}
+              studentName={settings.studentName || 'Francisco'}
+            />
+          )}
+
+          {/* TAB 3: Settings & Access Control */}
+          {activeParentTab === 'settings' && (
+            <div className="space-y-6">
+              {/* Section 1: Visual Alert Days Configuration */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
             <h3 className="font-extrabold text-base text-slate-900 mb-2 flex items-center gap-2">
               <Sliders className="w-4 h-4 text-red-600" />
               <span>Ajustar Regras dos Alertas de Cores</span>
@@ -544,9 +601,12 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
               </p>
             )}
           </div>
+            </div>
+          )}
 
-          {/* Section 2: Photo Check-ins Audit Gallery */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
+          {/* TAB 2: Photo Check-ins Audit Gallery */}
+          {activeParentTab === 'checkins' && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
               <div>
                 <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
@@ -653,9 +713,13 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
               </div>
             )}
           </div>
+          )}
 
-          {/* Section 3: Data Backup & Persistence Explanation (Crucial user request) */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+          {/* TAB 3: Settings & Persistence */}
+          {activeParentTab === 'settings' && (
+            <div className="space-y-6">
+              {/* Section 3: Data Backup & Persistence Explanation (Crucial user request) */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
             <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
               <Database className="w-4 h-4 text-red-600" />
               <span>Cópia de Segurança dos Dados & Persistência</span>
@@ -829,6 +893,8 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
               </div>
             )}
           </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -91,6 +91,21 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["dateKey", "items"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Parental audit log tracking system usage and actions per user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "action": { "type": "string" },
+        "description": { "type": "string" },
+        "details": { "type": "object" }
+      },
+      "required": ["id", "timestamp", "userEmail", "action", "description"]
     }
   },
   "firestore": {
@@ -117,6 +132,10 @@
     "/backpack/{dateKey}": {
       "schema": "BackpackDay",
       "description": "Backpack checklist status per date"
+    },
+    "/activity_logs/{logId}": {
+      "schema": "ActivityLog",
+      "description": "Activity and usage audit logs per user for parental monitoring"
     }
   }
 }

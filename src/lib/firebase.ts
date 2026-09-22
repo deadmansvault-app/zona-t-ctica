@@ -103,17 +103,79 @@ export async function signInWithGoogle(): Promise<User | null> {
   }
 }
 
+export interface LocalFamilyUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  isAnonymous: boolean;
+  photoURL: string | null;
+}
+
+export type AppUser = User | LocalFamilyUser;
+
+const LOCAL_FAMILY_USER_KEY = 'foco_9b_local_family_user';
+
+export function getLocalFamilySession(): LocalFamilyUser | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(LOCAL_FAMILY_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setLocalFamilySession(user: LocalFamilyUser | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (user) {
+      localStorage.setItem(LOCAL_FAMILY_USER_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(LOCAL_FAMILY_USER_KEY);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 /**
- * Sign in as a family device / anonymous session.
- * Does NOT require Google OAuth popup or domain authorization.
- * Allows Firestore real-time sync immediately on GitHub Pages and all domains.
+ * Sign in as a family device / quick family session.
+ * First tries Firebase signInAnonymously.
+ * If Anonymous sign-in is disabled in Firebase console (auth/admin-restricted-operation),
+ * it seamlessly activates a secure Local Family Session with guaranteed IndexedDB/LocalStorage persistence,
+ * preventing any crash or block.
  */
-export async function signInFamilySync(): Promise<User | null> {
+export async function signInFamilySync(): Promise<AppUser> {
   try {
     const cred = await signInAnonymously(auth);
+    setLocalFamilySession(null);
     return cred.user;
   } catch (error: any) {
-    console.error('Erro no início de sessão anónimo / família:', error);
+    const errorCode = error?.code || '';
+    const errorMsg = error?.message || String(error);
+
+    // If anonymous auth is not enabled in Firebase Console, fallback to Local Family session
+    if (
+      errorCode === 'auth/admin-restricted-operation' ||
+      errorCode === 'auth/operation-not-allowed' ||
+      errorMsg.includes('admin-restricted-operation') ||
+      errorMsg.includes('operation-not-allowed')
+    ) {
+      console.info(
+        'Modo Família: Autenticação anónima restrita no Firebase. A ativar Modo Familiar Local com armazenamento seguro no dispositivo.'
+      );
+      const localUser: LocalFamilyUser = {
+        uid: 'local_family_device',
+        email: 'familia@local',
+        displayName: 'Francisco (Modo Família)',
+        isAnonymous: true,
+        photoURL: null,
+      };
+      setLocalFamilySession(localUser);
+      return localUser;
+    }
+
+    console.warn('Aviso ao iniciar sessão familiar no Firebase:', error);
     throw error;
   }
 }
@@ -121,6 +183,7 @@ export async function signInFamilySync(): Promise<User | null> {
 export async function signInWithEmail(email: string, pass: string): Promise<User> {
   try {
     const cred = await signInWithEmailAndPassword(auth, email.trim(), pass);
+    setLocalFamilySession(null);
     return cred.user;
   } catch (error: any) {
     console.warn('Erro no login por email:', error);
@@ -134,6 +197,7 @@ export async function signUpWithEmail(email: string, pass: string, name?: string
     if (name && name.trim()) {
       await updateProfile(cred.user, { displayName: name.trim() });
     }
+    setLocalFamilySession(null);
     return cred.user;
   } catch (error: any) {
     console.warn('Erro no registo por email:', error);
@@ -145,6 +209,12 @@ export function translateAuthError(error: any): string {
   const code = error?.code || '';
   const msg = error?.message || String(error);
 
+  if (code === 'auth/admin-restricted-operation' || msg.includes('admin-restricted-operation')) {
+    return 'O método anónimo/família na nuvem requer ativação na Consola do Firebase. Podes entrar de imediato com a "Conta Google" ou continuar no Modo Família local.';
+  }
+  if (code === 'auth/operation-not-allowed' || msg.includes('operation-not-allowed')) {
+    return 'Este método de autenticação não se encontra ativo no projeto Firebase. Utiliza "Conta Google" para entrar.';
+  }
   if (code === 'auth/invalid-email' || msg.includes('invalid-email')) {
     return 'O endereço de email introduzido não é válido.';
   }
@@ -164,12 +234,13 @@ export function translateAuthError(error: any): string {
     return 'A janela de autenticação foi bloqueada pelo navegador. Permita popups ou use o Modo Família.';
   }
   if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
-    return 'Este domínio ainda precisa de ser adicionado no Firebase Console. Utilize o Modo Família para sincronizar já.';
+    return 'Este domínio ainda precisa de ser adicionado no Firebase Console. Utilize o Modo Família para aceder já.';
   }
   return msg || 'Ocorreu um erro ao processar a autenticação.';
 }
 
 export async function logOut(): Promise<void> {
+  setLocalFamilySession(null);
   try {
     await firebaseSignOut(auth);
   } catch (error: any) {

@@ -1,4 +1,4 @@
-import { SchoolTask, CheckInRecord, ScheduleItem, AppSettings, CheckInAlert } from '../types';
+import { SchoolTask, TaskType, CheckInRecord, ScheduleItem, AppSettings, CheckInAlert, ActivityLog, ActivityActionType } from '../types';
 import { INITIAL_TASKS, INITIAL_SCHEDULE, DEFAULT_SETTINGS } from '../data/timetableData';
 import {
   db,
@@ -20,7 +20,7 @@ import {
 } from 'firebase/firestore';
 
 const DB_NAME = 'FocoEscolar9B_DB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const FALLBACK_PREFIX = 'foco_9b_';
 
 export function getTomorrowDateStr(): string {
@@ -99,6 +99,9 @@ function openDatabase(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('alerts')) {
         db.createObjectStore('alerts', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('activity_logs')) {
+        db.createObjectStore('activity_logs', { keyPath: 'id' });
       }
     };
 
@@ -872,6 +875,166 @@ export function subscribeToRemoteAlerts(
     }
     if (unsubscribeFirestore) {
       unsubscribeFirestore();
+    }
+  };
+}
+
+// ----------------- ACTIVITY LOGS (PARENTAL MONITORING) -----------------
+
+export async function recordActivityLog(
+  actionOrObj:
+    | ActivityActionType
+    | {
+        action: ActivityActionType;
+        description: string;
+        userEmail?: string;
+        userName?: string;
+        details?: ActivityLog['details'];
+        taskId?: string;
+        taskTitle?: string;
+        subjectCode?: string;
+        taskType?: TaskType;
+        dueDate?: string;
+        isOverdue?: boolean;
+        daysOverdue?: number;
+        [key: string]: any;
+      },
+  descriptionArg?: string,
+  detailsArg?: ActivityLog['details']
+): Promise<void> {
+  const isObj = typeof actionOrObj === 'object' && actionOrObj !== null;
+  const action: ActivityActionType = isObj ? actionOrObj.action : (actionOrObj as ActivityActionType);
+  const description = isObj ? actionOrObj.description : descriptionArg || '';
+  const details = isObj ? (actionOrObj.details || { ...actionOrObj }) : detailsArg;
+
+  const currentUser = auth.currentUser;
+  const userEmail =
+    (isObj && actionOrObj.userEmail) ||
+    currentUser?.email ||
+    (currentUser?.isAnonymous ? 'familia_sync@local' : 'utilizador@local');
+  const userName =
+    (isObj && actionOrObj.userName) ||
+    currentUser?.displayName ||
+    userEmail.split('@')[0];
+
+  const log: ActivityLog = {
+    id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    timestamp: new Date().toISOString(),
+    userEmail,
+    userName,
+    action,
+    description,
+    details: details || {},
+  };
+
+  // 1. Save to local storage cache & IndexedDB
+  try {
+    const dbInst = await openDatabase();
+    const tx = dbInst.transaction('activity_logs', 'readwrite');
+    tx.objectStore('activity_logs').put(log);
+  } catch {
+    // ignore
+  }
+
+  try {
+    const raw = localStorage.getItem(`${FALLBACK_PREFIX}activity_logs`);
+    let logs: ActivityLog[] = raw ? JSON.parse(raw) : [];
+    logs.unshift(log);
+    // Keep max 200 logs locally
+    if (logs.length > 200) {
+      logs = logs.slice(0, 200);
+    }
+    localStorage.setItem(`${FALLBACK_PREFIX}activity_logs`, JSON.stringify(logs));
+  } catch {
+    // ignore
+  }
+
+  // 2. Sync to Firebase Firestore if logged in
+  if (currentUser) {
+    const path = `activity_logs/${log.id}`;
+    try {
+      await setDoc(doc(db, 'activity_logs', log.id), cleanForFirestore(log));
+    } catch (err) {
+      console.warn('Erro ao sincronizar log de auditoria no Firestore:', err);
+    }
+  }
+}
+
+export async function loadActivityLogs(): Promise<ActivityLog[]> {
+  // First try Firestore if user is logged in
+  if (auth.currentUser) {
+    try {
+      const logsCol = collection(db, 'activity_logs');
+      const q = query(logsCol, orderBy('timestamp', 'desc'), limit(150));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const cloudLogs = snap.docs.map((d) => d.data() as ActivityLog);
+        // Save to local cache
+        try {
+          localStorage.setItem(`${FALLBACK_PREFIX}activity_logs`, JSON.stringify(cloudLogs));
+        } catch {}
+        return cloudLogs;
+      }
+    } catch (err) {
+      console.warn('Tentativa de ler logs no Firestore em fallback local:', err);
+    }
+  }
+
+  // Local fallback: IndexedDB
+  try {
+    const dbInst = await openDatabase();
+    return new Promise((resolve) => {
+      const tx = dbInst.transaction('activity_logs', 'readonly');
+      const store = tx.objectStore('activity_logs');
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const result = (req.result as ActivityLog[]) || [];
+        result.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        resolve(result);
+      };
+      req.onerror = () => {
+        resolve(loadActivityLogsFromLocalStorage());
+      };
+    });
+  } catch {
+    return loadActivityLogsFromLocalStorage();
+  }
+}
+
+function loadActivityLogsFromLocalStorage(): ActivityLog[] {
+  try {
+    const raw = localStorage.getItem(`${FALLBACK_PREFIX}activity_logs`);
+    if (raw) {
+      const parsed: ActivityLog[] = JSON.parse(raw);
+      parsed.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+export function subscribeToRemoteLogs(onLogs: (logs: ActivityLog[]) => void): () => void {
+  let unsubscribe: (() => void) | null = null;
+  try {
+    const logsCol = collection(db, 'activity_logs');
+    const q = query(logsCol, orderBy('timestamp', 'desc'), limit(150));
+    unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const logs = snapshot.docs.map((doc) => doc.data() as ActivityLog);
+        onLogs(logs);
+      },
+      (err) => {
+        // Silently handle if unauthenticated
+      }
+    );
+  } catch {
+    // ignore
+  }
+
+  return () => {
+    if (unsubscribe) {
+      unsubscribe();
     }
   };
 }

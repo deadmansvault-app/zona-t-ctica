@@ -10,15 +10,21 @@ import {
   Users,
   Wand2,
   FileText,
+  CheckCircle2,
+  CheckSquare,
+  Square,
+  AlertCircle,
 } from 'lucide-react';
 import { SchoolTask, TaskType } from '../types';
 import { SUBJECTS } from '../data/timetableData';
 import { generateStudyPlan } from '../lib/studyPlanner';
+import { parseTasksFromText, convertParsedEntryToSchoolTask, ParsedTaskEntry } from '../lib/taskParser';
 
 interface AddTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddTask: (task: SchoolTask) => void;
+  onAddMultipleTasks?: (tasks: SchoolTask[]) => void;
   initialDueDate?: string;
   academicYear?: string;
 }
@@ -27,6 +33,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
   isOpen,
   onClose,
   onAddTask,
+  onAddMultipleTasks,
   initialDueDate,
   academicYear,
 }) => {
@@ -60,12 +67,89 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
   // Text Helper State
   const [aiPromptText, setAiPromptText] = useState('');
   const [aiSuccessMsg, setAiSuccessMsg] = useState('');
+  const [parsedEntries, setParsedEntries] = useState<ParsedTaskEntry[]>([]);
+
+  // Automatically detect multiple entries or structured lines when text changes
+  useEffect(() => {
+    if (!aiPromptText.trim()) {
+      setParsedEntries([]);
+      return;
+    }
+    const detected = parseTasksFromText(aiPromptText, {
+      defaultType: type,
+      academicYear: academicYear || '2026/2027',
+    });
+    setParsedEntries(detected);
+  }, [aiPromptText, type, academicYear]);
 
   if (!isOpen) return null;
 
-  // Text Helper inside modal
+  // Toggle selection for an individual detected entry
+  const handleToggleEntry = (id: string) => {
+    setParsedEntries((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, selected: !item.selected } : item))
+    );
+  };
+
+  // Update a single field on a parsed entry inline
+  const handleUpdateEntry = (id: string, field: keyof ParsedTaskEntry, value: any) => {
+    setParsedEntries((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const updated = { ...item, [field]: value };
+        if (field === 'subjectCode') {
+          updated.subjectName = SUBJECTS[value]?.name || value;
+        }
+        return updated;
+      })
+    );
+  };
+
+  // Toggle all entries
+  const handleToggleAll = () => {
+    const allSelected = parsedEntries.every((e) => e.selected !== false);
+    setParsedEntries((prev) => prev.map((e) => ({ ...e, selected: !allSelected })));
+  };
+
+  // Create all selected parsed tasks at once!
+  const handleCreateMultipleTasks = () => {
+    const selected = parsedEntries.filter((e) => e.selected !== false);
+    if (selected.length === 0) return;
+
+    const createdTasks = selected.map((entry) =>
+      convertParsedEntryToSchoolTask(entry, academicYear || '2026/2027')
+    );
+
+    if (onAddMultipleTasks) {
+      onAddMultipleTasks(createdTasks);
+    } else {
+      createdTasks.forEach((t) => onAddTask(t));
+    }
+
+    onClose();
+  };
+
+  // Load a single entry into the manual form
+  const handleLoadEntryIntoForm = (entry: ParsedTaskEntry) => {
+    setTitle(entry.title);
+    setSubjectCode(entry.subjectCode);
+    setType(entry.type);
+    setDueDate(entry.dueDate);
+    setDescription(entry.description);
+    setCreationMode('manual');
+    setAiSuccessMsg('✨ Dados carregados no formulário!');
+    setTimeout(() => setAiSuccessMsg(''), 3000);
+  };
+
+  // Text Helper button inside modal (for single or general entry)
   const handleApplyAiText = () => {
     if (!aiPromptText.trim()) return;
+
+    if (parsedEntries.length > 0) {
+      const first = parsedEntries[0];
+      handleLoadEntryIntoForm(first);
+      return;
+    }
 
     const upper = aiPromptText.toUpperCase();
 
@@ -90,7 +174,6 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
       setType('tpc');
     }
 
-    // Set title and description
     setTitle(aiPromptText.slice(0, 60).trim());
     setDescription(aiPromptText.trim());
 
@@ -155,6 +238,8 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
     setType('tpc');
   };
 
+  const selectedEntriesCount = parsedEntries.filter((e) => e.selected !== false).length;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
       <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
@@ -212,35 +297,193 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
         <div className="overflow-y-auto p-4 sm:p-5 space-y-4 flex-1">
           {/* TEXT HELPER SECTION */}
           {creationMode === 'text' && (
-            <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-2xl space-y-2.5 animate-in slide-in-from-top-1">
-              <label className="block text-xs font-bold text-amber-950">
-                Cola aqui o texto do Teams, Classroom ou apontamento do professor:
-              </label>
-              <textarea
-                rows={3}
-                value={aiPromptText}
-                onChange={(e) => setAiPromptText(e.target.value)}
-                placeholder="Ex: 'Para quarta-feira, TPC de Português: exercícios da página 45 números 1 a 4 sobre orações subordinadas'..."
-                className="w-full text-xs border border-amber-300 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
-              />
-              <div className="flex items-center justify-between gap-2">
-                {aiSuccessMsg ? (
-                  <span className="text-xs font-black text-emerald-700">{aiSuccessMsg}</span>
-                ) : (
-                  <span className="text-[10px] text-amber-800">
-                    Deteta a disciplina, o tipo e o prazo automaticamente.
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={handleApplyAiText}
-                  disabled={!aiPromptText.trim()}
-                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50"
-                >
-                  <Wand2 className="w-3.5 h-3.5" />
-                  <span>Preencher Campos</span>
-                </button>
+            <div className="space-y-4 animate-in slide-in-from-top-1">
+              <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-amber-950">
+                    Cola aqui o texto do Teams, Classroom ou apontamento do professor:
+                  </label>
+                  {parsedEntries.length > 1 && (
+                    <span className="text-[11px] font-extrabold bg-red-100 text-red-700 px-2 py-0.5 rounded-full border border-red-200">
+                      {parsedEntries.length} eventos detetados
+                    </span>
+                  )}
+                </div>
+                <textarea
+                  rows={4}
+                  value={aiPromptText}
+                  onChange={(e) => setAiPromptText(e.target.value)}
+                  placeholder="Exemplo com múltiplas entradas:
+24-05-2027 (08:15-09:05)	Teste de Físico-Química...
+24-05-2027 (09:15-10:05)	Teste de Físico-Química...
+21-05-2027 (10:25-11:15)	Teste de Matemática..."
+                  className="w-full text-xs font-mono border border-amber-300 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                />
+                <div className="flex items-center justify-between gap-2">
+                  {aiSuccessMsg ? (
+                    <span className="text-xs font-black text-emerald-700">{aiSuccessMsg}</span>
+                  ) : (
+                    <span className="text-[11px] text-amber-800">
+                      Deteta múltiplas datas, horários, disciplinas e docentes de uma só vez!
+                    </span>
+                  )}
+                  {parsedEntries.length <= 1 && (
+                    <button
+                      type="button"
+                      onClick={handleApplyAiText}
+                      disabled={!aiPromptText.trim()}
+                      className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50"
+                    >
+                      <Wand2 className="w-3.5 h-3.5" />
+                      <span>Preencher Campos</span>
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {/* Multi-Entry Detected Panel */}
+              {parsedEntries.length > 1 && (
+                <div className="bg-slate-50 border-2 border-red-200 rounded-2xl p-4 space-y-3 shadow-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-red-100 flex items-center justify-center text-red-600 font-black text-xs">
+                        {parsedEntries.length}
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-slate-900">
+                          Múltiplos Eventos Detetados no Texto
+                        </h4>
+                        <p className="text-[10px] text-slate-500">
+                          Seleciona os eventos que pretendes criar na agenda:
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleToggleAll}
+                      className="text-xs font-bold text-slate-600 hover:text-slate-900 underline"
+                    >
+                      {parsedEntries.every((e) => e.selected !== false) ? 'Desmarcar Todos' : 'Selecionar Todos'}
+                    </button>
+                  </div>
+
+                  {/* List of Detected Task Cards */}
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {parsedEntries.map((entry, idx) => (
+                      <div
+                        key={entry.id || idx}
+                        className={`p-3 rounded-xl border transition-all text-xs ${
+                          entry.selected !== false
+                            ? 'bg-white border-red-300 shadow-xs'
+                            : 'bg-slate-100/70 border-slate-200 opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleEntry(entry.id)}
+                            className="mt-0.5 text-red-600 hover:text-red-700"
+                          >
+                            {entry.selected !== false ? (
+                              <CheckSquare className="w-4 h-4" />
+                            ) : (
+                              <Square className="w-4 h-4 text-slate-400" />
+                            )}
+                          </button>
+
+                          <div className="flex-1 space-y-1.5">
+                            {/* Header row: Subject & Type Badges & Date */}
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <select
+                                  value={entry.subjectCode}
+                                  onChange={(e) => handleUpdateEntry(entry.id, 'subjectCode', e.target.value)}
+                                  className="text-[11px] font-black bg-slate-100 border border-slate-300 rounded-md px-1.5 py-0.5"
+                                >
+                                  {Object.keys(SUBJECTS).map((code) => (
+                                    <option key={code} value={code}>
+                                      {code} - {SUBJECTS[code].name}
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <select
+                                  value={entry.type}
+                                  onChange={(e) => handleUpdateEntry(entry.id, 'type', e.target.value as TaskType)}
+                                  className="text-[11px] font-bold uppercase bg-slate-100 border border-slate-300 rounded-md px-1.5 py-0.5"
+                                >
+                                  <option value="teste">Teste</option>
+                                  <option value="trabalho">Trabalho</option>
+                                  <option value="tpc">TPC</option>
+                                  <option value="outro">Outro</option>
+                                </select>
+                              </div>
+
+                              <div className="flex items-center gap-1 font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">
+                                <Calendar className="w-3 h-3 text-red-600" />
+                                <input
+                                  type="date"
+                                  value={entry.dueDate}
+                                  onChange={(e) => handleUpdateEntry(entry.id, 'dueDate', e.target.value)}
+                                  className="bg-transparent border-none text-[11px] font-bold p-0 focus:outline-hidden"
+                                />
+                                {entry.timeRange && (
+                                  <span className="text-slate-500 font-semibold ml-1">
+                                    • {entry.timeRange}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Title & Teacher input */}
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={entry.title}
+                                onChange={(e) => handleUpdateEntry(entry.id, 'title', e.target.value)}
+                                className="flex-1 font-bold text-slate-900 border border-slate-200 rounded-lg px-2 py-1 text-xs focus:ring-1 focus:ring-red-500 focus:outline-hidden bg-white"
+                              />
+                            </div>
+                            {entry.teacher && (
+                              <div className="text-[11px] text-slate-500">
+                                Docente: <span className="font-semibold text-slate-700">{entry.teacher}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Action Bar for Multiple Entries */}
+                  <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-600">
+                      {selectedEntriesCount} de {parsedEntries.length} eventos selecionados
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const first = parsedEntries[0];
+                          if (first) handleLoadEntryIntoForm(first);
+                        }}
+                        className="text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-colors"
+                      >
+                        Carregar 1º no Formulário
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCreateMultipleTasks}
+                        disabled={selectedEntriesCount === 0}
+                        className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-md transition-all disabled:opacity-50"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Criar Todos os {selectedEntriesCount} Eventos</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

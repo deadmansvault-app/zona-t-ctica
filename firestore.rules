@@ -73,6 +73,12 @@ service cloud.firestore {
       allow read, list: if isAllowedUser();
       allow create, update, delete: if isAllowedUser();
     }
+
+    // Activity Logs Collection for Parental Oversight
+    match /activity_logs/{logId} {
+      allow read, list: if isAllowedUser();
+      allow create, update, delete: if isAllowedUser();
+    }
   }
 }
 

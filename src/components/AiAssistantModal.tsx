@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Sparkles,
@@ -12,31 +12,114 @@ import {
   FileCheck,
   CalendarCheck,
   ExternalLink,
-  Download
+  Download,
+  CheckSquare,
+  Square,
+  Plus,
 } from 'lucide-react';
 import { SchoolTask, TaskType } from '../types';
 import { SUBJECTS } from '../data/timetableData';
 import { generateIcsCalendar, downloadIcsFile } from '../lib/googleCalendar';
+import {
+  parseTasksFromText,
+  convertParsedEntryToSchoolTask,
+  ParsedTaskEntry,
+} from '../lib/taskParser';
 
 interface AiAssistantModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImportTask: (task: SchoolTask) => void;
+  onImportTask?: (task: SchoolTask) => void;
+  onAddTask?: (task: SchoolTask) => void;
+  onAddMultipleTasks?: (tasks: SchoolTask[]) => void;
   tasks?: SchoolTask[];
   settings?: any;
+  schoolName?: string;
+  academicYear?: string;
 }
 
 export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
   isOpen,
   onClose,
   onImportTask,
+  onAddTask,
+  onAddMultipleTasks,
   tasks = [],
   settings,
+  academicYear,
 }) => {
   const [activeTab, setActiveTab] = useState<'parser' | 'groupwork' | 'google'>('parser');
   const [pastedText, setPastedText] = useState('');
   const [selectedType, setSelectedType] = useState<TaskType>('tpc');
   const [successMsg, setSuccessMsg] = useState(false);
+  const [createdCount, setCreatedCount] = useState(0);
+  const [parsedEntries, setParsedEntries] = useState<ParsedTaskEntry[]>([]);
+
+  const effectiveAcademicYear = academicYear || settings?.academicYear || '2026/2027';
+
+  // Automatically detect multiple entries or structured lines when text changes
+  useEffect(() => {
+    if (!pastedText.trim()) {
+      setParsedEntries([]);
+      return;
+    }
+    const detected = parseTasksFromText(pastedText, {
+      defaultType: selectedType,
+      academicYear: effectiveAcademicYear,
+    });
+    setParsedEntries(detected);
+  }, [pastedText, selectedType, effectiveAcademicYear]);
+
+  // Toggle selection for an individual detected entry
+  const handleToggleEntry = (id: string) => {
+    setParsedEntries((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, selected: !item.selected } : item))
+    );
+  };
+
+  // Update a single field on a parsed entry inline
+  const handleUpdateEntry = (id: string, field: keyof ParsedTaskEntry, value: any) => {
+    setParsedEntries((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const updated = { ...item, [field]: value };
+        if (field === 'subjectCode') {
+          updated.subjectName = SUBJECTS[value]?.name || value;
+        }
+        return updated;
+      })
+    );
+  };
+
+  // Toggle all entries
+  const handleToggleAll = () => {
+    const allSelected = parsedEntries.every((e) => e.selected !== false);
+    setParsedEntries((prev) => prev.map((e) => ({ ...e, selected: !allSelected })));
+  };
+
+  // Dispatch created tasks to the parent handler
+  const saveCreatedTasks = (tasksToSave: SchoolTask[]) => {
+    if (tasksToSave.length === 0) return;
+
+    if (onAddMultipleTasks) {
+      onAddMultipleTasks(tasksToSave);
+    } else {
+      const handler = onAddTask || onImportTask;
+      if (handler) {
+        tasksToSave.forEach((t) => handler(t));
+      }
+    }
+
+    setCreatedCount(tasksToSave.length);
+    setSuccessMsg(true);
+    setPastedText('');
+    setParsedEntries([]);
+
+    setTimeout(() => {
+      setSuccessMsg(false);
+      onClose();
+    }, 1800);
+  };
 
   // Group work state
   const [groupTitle, setGroupTitle] = useState('');
@@ -47,12 +130,30 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Smart parser for quick pasted homework from Teams, Classroom, WhatsApp or Inovar
+  // Smart parser for quick pasted homework or multiple tests from Teams, Classroom, WhatsApp or Inovar
   const handleParseAndImport = (e: React.FormEvent) => {
     e.preventDefault();
     if (!pastedText.trim()) return;
 
-    // Detect subject code if mentioned
+    // If multiple entries were detected, create all selected entries!
+    if (parsedEntries.length > 1) {
+      const selected = parsedEntries.filter((entry) => entry.selected !== false);
+      const toConvert = selected.length > 0 ? selected : parsedEntries;
+      const tasksToSave = toConvert.map((entry) =>
+        convertParsedEntryToSchoolTask(entry, effectiveAcademicYear)
+      );
+      saveCreatedTasks(tasksToSave);
+      return;
+    }
+
+    // If exactly one structured entry was detected, use it
+    if (parsedEntries.length === 1) {
+      const singleTask = convertParsedEntryToSchoolTask(parsedEntries[0], effectiveAcademicYear);
+      saveCreatedTasks([singleTask]);
+      return;
+    }
+
+    // Fallback: general unstructured text
     let detectedSubject = 'MAT';
     const upper = pastedText.toUpperCase();
     for (const code of Object.keys(SUBJECTS)) {
@@ -62,7 +163,6 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
       }
     }
 
-    // Detect task type
     let detectedType: TaskType = selectedType;
     if (upper.includes('GRUPO') || upper.includes('TRABALHO DE GRUPO') || upper.includes('PROJETO')) {
       detectedType = 'trabalho';
@@ -72,55 +172,8 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
       detectedType = 'tpc';
     }
 
-    // Default due in 2 days if not found
     const due = new Date();
     due.setDate(due.getDate() + (detectedType === 'teste' ? 7 : detectedType === 'trabalho' ? 10 : 2));
-
-    // Generate study sessions or milestones if test or group work
-    let studySessions = undefined;
-    if (detectedType === 'teste') {
-      const s1 = new Date();
-      s1.setDate(s1.getDate() + 2);
-      const s2 = new Date();
-      s2.setDate(s2.getDate() + 4);
-      studySessions = [
-        {
-          id: `s-ai-${Date.now()}-1`,
-          date: s1.toISOString().split('T')[0],
-          timeRange: '17:30 - 18:30',
-          topic: `Revisão inicial da matéria de ${SUBJECTS[detectedSubject]?.name || detectedSubject}`,
-          completed: false,
-        },
-        {
-          id: `s-ai-${Date.now()}-2`,
-          date: s2.toISOString().split('T')[0],
-          timeRange: '18:00 - 19:15',
-          topic: 'Exercícios práticos e simulador de teste',
-          completed: false,
-        },
-      ];
-    } else if (detectedType === 'trabalho') {
-      const s1 = new Date();
-      s1.setDate(s1.getDate() + 3);
-      const s2 = new Date();
-      s2.setDate(s2.getDate() + 7);
-      studySessions = [
-        {
-          id: `s-ai-${Date.now()}-1`,
-          date: s1.toISOString().split('T')[0],
-          timeRange: '17:00 - 18:00',
-          topic: 'Fase 1: Pesquisa inicial e divisão de tarefas do grupo',
-          completed: false,
-        },
-        {
-          id: `s-ai-${Date.now()}-2`,
-          date: s2.toISOString().split('T')[0],
-          timeRange: '17:30 - 19:00',
-          topic: 'Fase 2: Redação final e montagem dos slides',
-          completed: false,
-        },
-      ];
-    }
 
     const importedTask: SchoolTask = {
       id: `task-ai-${Date.now()}`,
@@ -129,19 +182,12 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
       type: detectedType,
       description: pastedText.trim(),
       dueDate: due.toISOString().split('T')[0],
-      academicYear: settings?.academicYear || '2026/2027',
+      academicYear: effectiveAcademicYear,
       studyPlanDaysBefore: detectedType === 'teste' ? 5 : detectedType === 'trabalho' ? 7 : undefined,
-      studySessions,
       createdAt: new Date().toISOString(),
     };
 
-    onImportTask(importedTask);
-    setPastedText('');
-    setSuccessMsg(true);
-    setTimeout(() => {
-      setSuccessMsg(false);
-      onClose();
-    }, 1200);
+    saveCreatedTasks([importedTask]);
   };
 
   // Group work generator
@@ -275,64 +321,225 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
         </div>
 
         <div className="p-5 overflow-y-auto space-y-4 text-slate-700 text-xs sm:text-sm">
-          {activeTab === 'parser' && (
+          {successMsg && (
+            <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl flex items-center gap-3 text-emerald-800 animate-in zoom-in-95">
+              <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
+              <div>
+                <h4 className="font-black text-sm">
+                  {createdCount > 1
+                    ? `🎉 ${createdCount} eventos adicionados à tua agenda!`
+                    : '🎉 Evento adicionado com sucesso!'}
+                </h4>
+                <p className="text-xs text-emerald-700">
+                  Os eventos escolares e planos de estudo foram guardados e já estão visíveis no teu calendário e na lista de tarefas.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'parser' && !successMsg && (
             <form onSubmit={handleParseAndImport} className="space-y-4">
               <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-3 text-xs text-amber-900 leading-relaxed flex items-start gap-2">
                 <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Deteção Inteligente:</strong> Cola o texto do aviso do professor (vindo do Microsoft Teams, Classroom, Inovar ou WhatsApp). A IA reconhece a disciplina, o tipo (TPC, Teste ou Trabalho) e cria as sessões de estudo!
+                  <strong>Deteção Inteligente Multi-Evento:</strong> Se colares um texto com várias linhas ou testes (ex: Físico-Química, Matemática, História), a IA reconhece cada linha e <strong>cria múltiplos eventos independentes</strong> na tua agenda!
                 </span>
               </div>
 
               <div>
-                <label className="block text-xs font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
-                  <Copy className="w-3.5 h-3.5 text-red-600" />
-                  <span>Texto do TPC, Teste ou Trabalho:</span>
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-black text-slate-800 flex items-center gap-1.5">
+                    <Copy className="w-3.5 h-3.5 text-red-600" />
+                    <span>Texto do TPC, Teste ou Múltiplas Avaliações:</span>
+                  </label>
+                  {parsedEntries.length > 1 && (
+                    <span className="text-[11px] font-black bg-red-100 text-red-700 px-2 py-0.5 rounded-full border border-red-200">
+                      {parsedEntries.length} eventos detetados
+                    </span>
+                  )}
+                </div>
                 <textarea
                   rows={4}
                   value={pastedText}
                   onChange={(e) => setPastedText(e.target.value)}
-                  placeholder="Exemplo: 'Para 4ª feira, TPC de Português: ler páginas 40 a 45 e responder às perguntas 1 a 4' ou 'Teste sumativo de História no dia 28 de outubro sobre o Século XX' ou 'Trabalho de Grupo de Ciências Naturais com Francisco e Tiago sobre placas tectónicas'..."
-                  className="w-full text-xs sm:text-sm border border-slate-300 rounded-xl p-3 bg-white focus:ring-2 focus:ring-red-500 focus:outline-hidden"
+                  placeholder="Exemplo de múltiplos testes:
+24-05-2027 (08:15-09:05)	Teste de Físico-Química, Sandra Cristina Furtado Lopes	Sandra Lopes
+24-05-2027 (09:15-10:05)	Teste de Físico-Química, Sandra Cristina Furtado Lopes	Sandra Lopes
+21-05-2027 (10:25-11:15)	Teste de Matemática, Cláudia Marisa de Oliveira Martinho	Cláudia Martinho
+21-05-2027 (11:25-12:15)	Teste de Matemática, Cláudia Marisa de Oliveira Martinho	Cláudia Martinho
+10-05-2027 (13:25-14:15)	Teste de História, Alexandra Maria Rodrigues Brito	Alexandra Brito"
+                  className="w-full text-xs font-mono border border-slate-300 rounded-xl p-3 bg-white focus:ring-2 focus:ring-red-500 focus:outline-hidden"
                 />
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-bold text-slate-600">Tipo pretendido:</span>
-                {(['tpc', 'teste', 'trabalho'] as TaskType[]).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setSelectedType(t)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all ${
-                      selectedType === t
-                        ? 'bg-red-600 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {t === 'tpc' ? 'TPC' : t === 'teste' ? 'Teste' : 'Trabalho de Grupo'}
-                  </button>
-                ))}
-              </div>
+              {/* Multi-Entry Detected Section */}
+              {parsedEntries.length > 1 ? (
+                <div className="bg-slate-50 border-2 border-red-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-red-600 text-white flex items-center justify-center font-black text-xs shadow-xs">
+                        {parsedEntries.length}
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-slate-900">
+                          {parsedEntries.length} Eventos Detetados no Texto
+                        </h4>
+                        <p className="text-[10px] text-slate-500">
+                          Confirma ou edita antes de adicionar à tua agenda escolar:
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleToggleAll}
+                      className="text-xs font-bold text-red-600 hover:text-red-700 underline"
+                    >
+                      {parsedEntries.every((e) => e.selected !== false) ? 'Desmarcar Todos' : 'Selecionar Todos'}
+                    </button>
+                  </div>
 
-              <div className="flex items-center justify-between pt-2">
-                <span className="text-[11px] text-slate-500">
-                  Ano Letivo: <strong>{settings?.academicYear || '2026/2027'}</strong>
-                </span>
-                <button
-                  type="submit"
-                  disabled={!pastedText.trim()}
-                  className={`flex items-center gap-1.5 text-xs font-bold px-4 py-2.5 rounded-xl transition-all ${
-                    pastedText.trim()
-                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-xs'
-                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Criar Tarefa com AI</span>
-                </button>
-              </div>
+                  {/* List of Detected Task Cards */}
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {parsedEntries.map((entry, idx) => (
+                      <div
+                        key={entry.id || idx}
+                        className={`p-3 rounded-xl border transition-all text-xs ${
+                          entry.selected !== false
+                            ? 'bg-white border-red-300 shadow-xs'
+                            : 'bg-slate-100/70 border-slate-200 opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleEntry(entry.id)}
+                            className="mt-0.5 text-red-600 hover:text-red-700"
+                          >
+                            {entry.selected !== false ? (
+                              <CheckSquare className="w-4 h-4" />
+                            ) : (
+                              <Square className="w-4 h-4 text-slate-400" />
+                            )}
+                          </button>
+
+                          <div className="flex-1 space-y-1.5">
+                            {/* Header row: Subject & Type Badges & Date */}
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <select
+                                  value={entry.subjectCode}
+                                  onChange={(e) => handleUpdateEntry(entry.id, 'subjectCode', e.target.value)}
+                                  className="text-[11px] font-black bg-slate-100 border border-slate-300 rounded-md px-1.5 py-0.5"
+                                >
+                                  {Object.keys(SUBJECTS).map((code) => (
+                                    <option key={code} value={code}>
+                                      {code} - {SUBJECTS[code].name}
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <select
+                                  value={entry.type}
+                                  onChange={(e) => handleUpdateEntry(entry.id, 'type', e.target.value as TaskType)}
+                                  className="text-[11px] font-bold uppercase bg-slate-100 border border-slate-300 rounded-md px-1.5 py-0.5"
+                                >
+                                  <option value="teste">Teste</option>
+                                  <option value="trabalho">Trabalho</option>
+                                  <option value="tpc">TPC</option>
+                                  <option value="outro">Outro</option>
+                                </select>
+                              </div>
+
+                              <div className="flex items-center gap-1 font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">
+                                <Calendar className="w-3 h-3 text-red-600" />
+                                <input
+                                  type="date"
+                                  value={entry.dueDate}
+                                  onChange={(e) => handleUpdateEntry(entry.id, 'dueDate', e.target.value)}
+                                  className="bg-transparent border-none text-[11px] font-bold p-0 focus:outline-hidden"
+                                />
+                                {entry.timeRange && (
+                                  <span className="text-slate-500 font-semibold ml-1">
+                                    • {entry.timeRange}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Title & Teacher input */}
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={entry.title}
+                                onChange={(e) => handleUpdateEntry(entry.id, 'title', e.target.value)}
+                                className="flex-1 font-bold text-slate-900 border border-slate-200 rounded-lg px-2 py-1 text-xs focus:ring-1 focus:ring-red-500 focus:outline-hidden bg-white"
+                              />
+                            </div>
+                            {entry.teacher && (
+                              <div className="text-[11px] text-slate-500">
+                                Docente: <span className="font-semibold text-slate-700">{entry.teacher}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Batch Action Bar */}
+                  <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-600">
+                      {parsedEntries.filter((e) => e.selected !== false).length} de {parsedEntries.length} eventos selecionados
+                    </span>
+                    <button
+                      type="submit"
+                      disabled={parsedEntries.filter((e) => e.selected !== false).length === 0}
+                      className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-extrabold text-xs rounded-xl flex items-center gap-2 shadow-md transition-all disabled:opacity-50"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Criar os {parsedEntries.filter((e) => e.selected !== false).length} Eventos no Calendário</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-slate-600">Tipo pretendido:</span>
+                    {(['tpc', 'teste', 'trabalho'] as TaskType[]).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setSelectedType(t)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all ${
+                          selectedType === t
+                            ? 'bg-red-600 text-white'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {t === 'tpc' ? 'TPC' : t === 'teste' ? 'Teste' : 'Trabalho de Grupo'}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-[11px] text-slate-500">
+                      Ano Letivo: <strong>{effectiveAcademicYear}</strong>
+                    </span>
+                    <button
+                      type="submit"
+                      disabled={!pastedText.trim()}
+                      className={`flex items-center gap-1.5 text-xs font-bold px-4 py-2.5 rounded-xl transition-all ${
+                        pastedText.trim()
+                          ? 'bg-red-600 hover:bg-red-700 text-white shadow-xs'
+                          : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      }`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Criar Tarefa com AI</span>
+                    </button>
+                  </div>
+                </>
+              )}
             </form>
           )}
 

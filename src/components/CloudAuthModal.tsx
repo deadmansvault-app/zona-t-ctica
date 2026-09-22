@@ -198,8 +198,7 @@ export const CloudAuthModal: React.FC<CloudAuthModalProps> = ({
                     </span>
                   </div>
                   <p className="text-[11px] text-emerald-900 leading-normal">
-                    Não precisas de aceder à consola do Firebase. Ativa a ligação direta da família na nuvem
-                    (Firestore) sem restrições de domínio, sincronizando tarefas e fotos de imediato.
+                    Podes entrar de imediato no Modo Família sem restrições de domínio. Todos os teus horários, tarefas, TPCs e check-ins ficam guardados com segurança no dispositivo.
                   </p>
                   <button
                     type="button"
@@ -207,10 +206,10 @@ export const CloudAuthModal: React.FC<CloudAuthModalProps> = ({
                     onClick={async () => {
                       await onConnectFamilySync();
                     }}
-                    className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs sm:text-sm py-2.5 rounded-xl shadow-md shadow-emerald-200 transition-all disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs sm:text-sm py-2.5 rounded-xl shadow-md shadow-emerald-200 transition-all disabled:opacity-50 cursor-pointer"
                   >
                     <Cloud className="w-4 h-4" />
-                    <span>{isLoggingIn ? 'A ativar ligação...' : 'Ativar Sincronização Direta da Família'}</span>
+                    <span>{isLoggingIn ? 'A ativar...' : 'Entrar no Modo Família (Acesso Imediato)'}</span>
                   </button>
                 </div>
 

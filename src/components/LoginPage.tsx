@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { User } from 'firebase/auth';
 import {
   Cloud,
   Shield,
@@ -14,9 +13,7 @@ import {
   RefreshCw,
   ArrowRight,
   School,
-  Check,
   Globe,
-  ExternalLink,
 } from 'lucide-react';
 import {
   signInWithGoogle,
@@ -25,14 +22,16 @@ import {
   signInFamilySync,
   translateAuthError,
   logOut,
+  AppUser,
 } from '../lib/firebase';
 import { AppSettings } from '../types';
 
 interface LoginPageProps {
-  user: User | null;
+  user: AppUser | null;
   settings?: AppSettings;
   onNavigateToDashboard: () => void;
   onNavigateToParents: () => void;
+  onUserLoggedIn?: (user: AppUser) => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({
@@ -40,6 +39,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   settings,
   onNavigateToDashboard,
   onNavigateToParents,
+  onUserLoggedIn,
 }) => {
   const [authMode, setAuthMode] = useState<'google' | 'email' | 'device'>('google');
   const [emailAction, setEmailAction] = useState<'signin' | 'signup'>('signin');
@@ -58,15 +58,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       const u = await signInWithGoogle();
       if (u) {
         setSuccessNotice('Sessão iniciada com sucesso via Google!');
+        onUserLoggedIn?.(u);
       }
     } catch (err: any) {
       if (err?.isUnauthorizedDomain) {
         setErrorMsg(
-          'O domínio desta janela ainda não está na lista de autorizados do Firebase. Podes usar a opção "Acesso Direto / Família" para entrar imediatamente!'
+          'O domínio desta janela ainda não está na lista de autorizados do Firebase. Podes usar a opção "Modo Família" para entrar imediatamente!'
         );
       } else if (err?.isPopupBlocked) {
         setErrorMsg(
-          'O navegador bloqueou a janela de login da Google. Permite popups no Safari/Chrome ou usa a opção "Acesso Direto / Família".'
+          'O navegador bloqueou a janela de login da Google. Permite popups no Safari/Chrome ou usa a opção "Modo Família".'
         );
       } else {
         setErrorMsg(translateAuthError(err));
@@ -94,11 +95,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setLoading(true);
     try {
       if (emailAction === 'signup') {
-        await signUpWithEmail(email, password, displayName || 'Família 9ºB');
+        const u = await signUpWithEmail(email, password, displayName || 'Família 9ºB');
         setSuccessNotice('Conta criada com sucesso! A entrar...');
+        onUserLoggedIn?.(u);
       } else {
-        await signInWithEmail(email, password);
+        const u = await signInWithEmail(email, password);
         setSuccessNotice('Sessão iniciada com sucesso! A entrar...');
+        onUserLoggedIn?.(u);
       }
     } catch (err: any) {
       setErrorMsg(translateAuthError(err));
@@ -112,8 +115,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setErrorMsg(null);
     setLoading(true);
     try {
-      await signInFamilySync();
-      setSuccessNotice('Dispositivo sincronizado com a base de dados familiar! A entrar...');
+      const u = await signInFamilySync();
+      if (u) {
+        setSuccessNotice('Acesso concedido! A entrar na Zona de Treino...');
+        onUserLoggedIn?.(u);
+      }
     } catch (err: any) {
       setErrorMsg(translateAuthError(err));
     } finally {

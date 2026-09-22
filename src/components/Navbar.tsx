@@ -15,16 +15,16 @@ import {
   Image as ImageIcon,
   RefreshCw,
 } from 'lucide-react';
-import { User } from 'firebase/auth';
 import { CheckInAlert, AppSettings } from '../types';
 import { SUBJECTS } from '../data/timetableData';
 import { requestBrowserNotificationPermission } from '../lib/sound';
+import { AppUser } from '../lib/firebase';
 
 interface NavbarProps {
   activeTab: 'dashboard' | 'calendario' | 'horario' | 'tarefas' | 'pais';
   setActiveTab: (tab: 'dashboard' | 'calendario' | 'horario' | 'tarefas' | 'pais') => void;
   pendingCount: number;
-  user: User | null;
+  user: AppUser | null;
   settings?: AppSettings;
   alerts?: CheckInAlert[];
   isLoggingIn?: boolean;

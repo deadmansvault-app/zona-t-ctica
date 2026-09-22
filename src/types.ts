@@ -41,6 +41,9 @@ export interface SchoolTask {
   description: string;
   dueDate: string; // YYYY-MM-DD
   dueTime?: string; // HH:mm
+  timeRange?: string; // e.g. "08:15-09:05"
+  teacher?: string;
+  estimatedMinutes?: number;
   studyPlanDaysBefore?: number;
   studySessions?: StudySession[];
   checkIn?: CheckInRecord;
@@ -77,6 +80,9 @@ export interface ScheduleItem {
 export interface AppSettings {
   greenDaysThreshold: number; // e.g. > 5 days
   yellowDaysThreshold: number; // e.g. 3 to 5 days
+  alertDaysRed?: number;
+  alertDaysOrange?: number;
+  alertDaysYellow?: number;
   parentPin: string; // Default "290912"
   studentName: string;
   favoriteTeam: string;
@@ -86,3 +92,34 @@ export interface AppSettings {
   studentClass: string; // e.g. "9º B"
   allowedEmails: string[]; // Access allowlist, e.g. ['meiraxx@gmail.com']
 }
+
+export type ActivityActionType =
+  | 'login'
+  | 'logout'
+  | 'task_create'
+  | 'task_edit'
+  | 'task_delete'
+  | 'task_checkin'
+  | 'backpack_toggle'
+  | 'settings_update'
+  | 'schedule_edit';
+
+export interface ActivityLog {
+  id: string;
+  timestamp: string; // ISO string
+  userEmail: string;
+  userName?: string;
+  action: ActivityActionType;
+  description: string;
+  details?: {
+    taskId?: string;
+    taskTitle?: string;
+    subjectCode?: string;
+    taskType?: TaskType;
+    dueDate?: string;
+    isOverdue?: boolean;
+    daysOverdue?: number;
+    [key: string]: any;
+  };
+}
+
