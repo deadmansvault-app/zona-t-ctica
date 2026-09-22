@@ -4,6 +4,7 @@ import {
   Sparkles,
   CheckCircle2,
   Calendar,
+  Clock,
   Copy,
   ArrowRight,
   Bot,
@@ -352,11 +353,19 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
                     <Copy className="w-3.5 h-3.5 text-red-600" />
                     <span>Texto do TPC, Teste ou Múltiplas Avaliações:</span>
                   </label>
-                  {parsedEntries.length > 1 && (
-                    <span className="text-[11px] font-black bg-red-100 text-red-700 px-2 py-0.5 rounded-full border border-red-200">
-                      {parsedEntries.length} eventos detetados
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {parsedEntries.length > 1 && (
+                      <span className="text-[11px] font-black bg-red-100 text-red-700 px-2 py-0.5 rounded-full border border-red-200">
+                        {parsedEntries.length} eventos detetados
+                      </span>
+                    )}
+                    {parsedEntries.some((e) => e.isTwoHourBlock) && (
+                      <span className="text-[11px] font-black bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full border border-purple-200 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-purple-600" />
+                        {parsedEntries.filter((e) => e.isTwoHourBlock).length} teste(s) 2h unificado(s)
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <textarea
                   rows={4}
@@ -448,6 +457,12 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
                                   <option value="tpc">TPC</option>
                                   <option value="outro">Outro</option>
                                 </select>
+
+                                {entry.isTwoHourBlock && (
+                                  <span className="px-2 py-0.5 rounded-md font-extrabold text-[10px] bg-purple-100 text-purple-800 border border-purple-300 flex items-center gap-1 shrink-0" title="Teste de 2 tempos / 2 horas unificado">
+                                    <Clock className="w-3 h-3 text-purple-600" /> 2 Tempos (2h)
+                                  </span>
+                                )}
                               </div>
 
                               <div className="flex items-center gap-1 font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">

@@ -44,6 +44,8 @@ export interface SchoolTask {
   timeRange?: string; // e.g. "08:15-09:05"
   teacher?: string;
   estimatedMinutes?: number;
+  isTwoHourBlock?: boolean; // Identified as 2-hour / 2-period test
+  slotCount?: number; // Number of periods/slots (e.g. 2)
   studyPlanDaysBefore?: number;
   studySessions?: StudySession[];
   checkIn?: CheckInRecord;

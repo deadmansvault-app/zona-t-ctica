@@ -138,7 +138,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
           {/* Due date and study sessions if applicable */}
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 mb-4 pl-1">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="flex items-center gap-1 font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
                 <Calendar className="w-3.5 h-3.5 text-red-600" />
                 <span>Para: {formattedDate}</span>
@@ -146,6 +146,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               {task.type === 'teste' && (
                 <span className="bg-red-50 text-red-700 font-bold px-2 py-0.5 rounded-md text-[11px] border border-red-200">
                   Teste de Avaliação
+                </span>
+              )}
+              {task.isTwoHourBlock && (
+                <span className="bg-purple-100 text-purple-800 font-extrabold px-2 py-0.5 rounded-md text-[11px] border border-purple-200 flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-purple-600" />
+                  2 Tempos (2h)
+                </span>
+              )}
+              {task.timeRange && (
+                <span className="text-slate-600 font-semibold flex items-center gap-1 text-[11px] bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                  <Clock className="w-3 h-3 text-slate-500" />
+                  {task.timeRange}
                 </span>
               )}
             </div>

@@ -67,8 +67,10 @@ ${text}
                 type: { type: Type.STRING, description: 'Tipo: teste, trabalho, tpc, ou outro' },
                 dueDate: { type: Type.STRING, description: 'Data no formato YYYY-MM-DD' },
                 dueTime: { type: Type.STRING, description: 'Hora de início no formato HH:mm se existir' },
-                timeRange: { type: Type.STRING, description: 'Intervalo de tempo se existir, ex: 08:15 - 09:05' },
+                timeRange: { type: Type.STRING, description: 'Intervalo de tempo se existir, ex: 08:15 - 10:05 (2 tempos / 2h)' },
                 teacher: { type: Type.STRING, description: 'Nome do docente se indicado' },
+                isTwoHourBlock: { type: Type.BOOLEAN, description: 'Verdadeiro se for um teste de 2 horas ou 2 tempos unificados' },
+                slotCount: { type: Type.INTEGER, description: 'Número de tempos (ex: 2)' },
                 description: { type: Type.STRING, description: 'Notas ou texto original da entrada' },
               },
               required: ['title', 'subjectCode', 'type', 'dueDate'],
@@ -76,8 +78,16 @@ ${text}
           },
           systemInstruction: `És um assistente especializado em processamento de agendas e horários escolares em Portugal.
 Ano letivo de referência: ${defaultYear || '2026/2027'}.
-Quando o texto contém várias linhas com datas (ex: 24-05-2027, 21-05-2027, 10-05-2027), deves criar obrigatoriamente um objeto de evento para CADA uma das entradas.
-Se houver duas aulas ou blocos no mesmo dia (ex: 08:15-09:05 e 09:15-10:05), deves criar 2 eventos separados com os respetivos horários.
+
+REGRA FUNDAMENTAL PARA TESTES DE 2 HORAS (2 TEMPOS CONSECUTIVOS):
+Em Portugal, os testes sumativos ocupam frequentemente 2 tempos letivos consecutivos (ex: 08:15-09:05 e 09:15-10:05, ou 10:25-11:15 e 11:25-12:15) e surgem marcados em duas linhas separadas para a mesma disciplina no mesmo dia.
+SEMPRE que detetares 2 entradas de teste para a MESMA disciplina na MESMA data (com horários consecutivos ou adjacentes):
+- NUNCA cries 2 eventos separados!
+- CRIA APENAS 1 ÚNICO EVENTO DE 2 HORAS.
+- Define timeRange unificado (ex: '08:15 - 10:05 (2 tempos / 2h)'), dueTime como a hora de início do 1º bloco (ex: '08:15'), isTwoHourBlock: true, slotCount: 2.
+- No título, identifica claramente ex: 'Teste de Físico-Química (2 tempos / 2h)'.
+
+Para entradas com datas ou disciplinas diferentes, cria uma entrada para cada evento independente.
 Códigos de disciplina:
 - FG: Físico-Química (Sandra Lopes)
 - MAT: Matemática (Cláudia Martinho)

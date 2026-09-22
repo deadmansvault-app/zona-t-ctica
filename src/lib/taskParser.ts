@@ -14,6 +14,9 @@ export interface ParsedTaskEntry {
   timeRange?: string; // "08:15-09:05"
   teacher?: string;
   selected?: boolean;
+  isTwoHourBlock?: boolean; // Identified as 2-hour / 2-period test
+  slotCount?: number; // Number of periods merged (e.g. 2)
+  estimatedMinutes?: number; // Estimated duration in minutes (e.g. 100, 110)
 }
 
 // Map common subject names, acronyms, and teacher names to subject codes
@@ -383,6 +386,200 @@ function extractTitleAndTeacher(
 }
 
 /**
+ * Converts a time string "HH:mm" to total minutes from midnight.
+ */
+export function parseTimeToMinutes(t?: string): number | null {
+  if (!t) return null;
+  const match = t.match(/(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+}
+
+/**
+ * Extracts start and end minutes from a timeRange string, e.g. "08:15-09:05" or "08:15 - 09:05".
+ */
+export function parseTimeRangeLimits(timeRange?: string): {
+  startMinutes: number;
+  endMinutes: number;
+  startStr: string;
+  endStr: string;
+} | null {
+  if (!timeRange) return null;
+  const match = timeRange.match(/(\d{1,2}:\d{2})\s*(?:[-–—]|(?:às|as|a))\s*(\d{1,2}:\d{2})/i);
+  if (!match) return null;
+  const startMinutes = parseTimeToMinutes(match[1]);
+  const endMinutes = parseTimeToMinutes(match[2]);
+  if (startMinutes === null || endMinutes === null) return null;
+  return {
+    startMinutes,
+    endMinutes,
+    startStr: match[1],
+    endStr: match[2],
+  };
+}
+
+/**
+ * Checks whether two entries are consecutive periods/blocks of the same test on the same day.
+ */
+export function areConsecutiveTestEntries(
+  a: ParsedTaskEntry,
+  b: ParsedTaskEntry
+): boolean {
+  // Must be same date
+  if (a.dueDate !== b.dueDate) return false;
+
+  // Must be same subject
+  if (a.subjectCode !== b.subjectCode) return false;
+
+  // Must both be tests (or evaluation lines)
+  const isTestA = a.type === 'teste' || a.title.toLowerCase().includes('teste');
+  const isTestB = b.type === 'teste' || b.title.toLowerCase().includes('teste');
+  if (!isTestA && !isTestB) return false;
+
+  // Time-based check
+  const limitsA = parseTimeRangeLimits(a.timeRange);
+  const limitsB = parseTimeRangeLimits(b.timeRange);
+
+  if (limitsA && limitsB) {
+    const first = limitsA.startMinutes <= limitsB.startMinutes ? limitsA : limitsB;
+    const second = limitsA.startMinutes <= limitsB.startMinutes ? limitsB : limitsA;
+
+    // In Portuguese schools, consecutive periods typically have 0 to 25 mins interval between them
+    // (e.g. 09:05 -> 09:15 is a 10 min break, or 10:25-11:15 & 11:25-12:15 is a 10 min break)
+    const gap = second.startMinutes - first.endMinutes;
+    const startDifference = second.startMinutes - first.startMinutes;
+
+    if ((gap >= -5 && gap <= 30) || (startDifference >= 40 && startDifference <= 110)) {
+      return true;
+    }
+  }
+
+  // If timeRange is missing or only single times exist
+  const minA = parseTimeToMinutes(a.dueTime);
+  const minB = parseTimeToMinutes(b.dueTime);
+  if (minA !== null && minB !== null) {
+    const diff = Math.abs(minA - minB);
+    if (diff >= 40 && diff <= 110) {
+      return true;
+    }
+  }
+
+  // Fallback: If both entries are identical tests on the exact same day
+  // (In Portuguese schools, students never have two separate tests of the same subject on the same day)
+  const normTitleA = a.title.toLowerCase().replace(/[^a-z]/g, '');
+  const normTitleB = b.title.toLowerCase().replace(/[^a-z]/g, '');
+  if (normTitleA === normTitleB || (normTitleA.includes('teste') && normTitleB.includes('teste'))) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Detects consecutive/multi-line test periods (e.g. 2 hours / 2 tempos) and merges
+ * them into a single consolidated test entry with accurate total duration.
+ */
+export function mergeConsecutiveTestEntries(entries: ParsedTaskEntry[]): ParsedTaskEntry[] {
+  if (entries.length <= 1) return entries;
+
+  const merged: ParsedTaskEntry[] = [];
+  const visited = new Set<string>();
+
+  for (let i = 0; i < entries.length; i++) {
+    const current = entries[i];
+    if (visited.has(current.id)) continue;
+
+    // Look for matching consecutive entries with current
+    const matchingIndices: number[] = [i];
+
+    for (let j = i + 1; j < entries.length; j++) {
+      const candidate = entries[j];
+      if (visited.has(candidate.id)) continue;
+
+      if (areConsecutiveTestEntries(current, candidate)) {
+        matchingIndices.push(j);
+      }
+    }
+
+    if (matchingIndices.length > 1) {
+      // 2-hour (or multi-tempo) test found in multiple lines!
+      const matchingEntries = matchingIndices.map((idx) => entries[idx]);
+      matchingIndices.forEach((idx) => visited.add(entries[idx].id));
+
+      // Sort matching entries chronologically
+      matchingEntries.sort((a, b) => {
+        const timeA = parseTimeToMinutes(a.dueTime) ?? parseTimeRangeLimits(a.timeRange)?.startMinutes ?? 0;
+        const timeB = parseTimeToMinutes(b.dueTime) ?? parseTimeRangeLimits(b.timeRange)?.startMinutes ?? 0;
+        return timeA - timeB;
+      });
+
+      const first = matchingEntries[0];
+      const last = matchingEntries[matchingEntries.length - 1];
+
+      const limitsFirst = parseTimeRangeLimits(first.timeRange);
+      const limitsLast = parseTimeRangeLimits(last.timeRange);
+
+      let finalTimeRange = first.timeRange;
+      let finalDueTime = first.dueTime;
+      let totalMinutes = matchingEntries.length * 50;
+
+      if (limitsFirst && limitsLast) {
+        finalTimeRange = `${limitsFirst.startStr} - ${limitsLast.endStr} (2 tempos / 2h)`;
+        finalDueTime = limitsFirst.startStr;
+        totalMinutes = limitsLast.endMinutes - limitsFirst.startMinutes;
+      } else if (limitsFirst) {
+        finalTimeRange = `${limitsFirst.startStr} - ${limitsFirst.endStr} (2 tempos / 2h)`;
+        finalDueTime = limitsFirst.startStr;
+      } else if (first.dueTime && last.dueTime) {
+        finalTimeRange = `${first.dueTime} - ${last.dueTime} (2 tempos / 2h)`;
+        finalDueTime = first.dueTime;
+      } else {
+        finalTimeRange = '2 tempos (2 horas)';
+      }
+
+      // Format title cleanly
+      let cleanTitle = first.title.trim().replace(/,\s*$/, '');
+      if (
+        !cleanTitle.toLowerCase().includes('2 tempos') &&
+        !cleanTitle.toLowerCase().includes('2h') &&
+        !cleanTitle.toLowerCase().includes('2 horas')
+      ) {
+        cleanTitle = `${cleanTitle} (2 tempos / 2h)`;
+      }
+
+      const teacher = matchingEntries.map((e) => e.teacher).find(Boolean) || first.teacher;
+
+      // Consolidated description
+      const descLines = matchingEntries.map((e) => e.description).filter(Boolean);
+      const uniqueDescLines = Array.from(new Set(descLines));
+      const consolidatedDesc = `Teste de 2 Tempos (2 Horas) • ${finalTimeRange}\nDocente: ${teacher || 'Não indicado'}\n${uniqueDescLines.join('\n')}`;
+
+      merged.push({
+        id: `merged-2h-${first.id}`,
+        title: cleanTitle,
+        subjectCode: first.subjectCode,
+        subjectName: first.subjectName,
+        type: 'teste',
+        description: consolidatedDesc,
+        dueDate: first.dueDate,
+        dueTime: finalDueTime,
+        timeRange: finalTimeRange,
+        teacher,
+        selected: true,
+        isTwoHourBlock: true,
+        slotCount: matchingEntries.length,
+        estimatedMinutes: totalMinutes,
+      });
+    } else {
+      visited.add(current.id);
+      merged.push(current);
+    }
+  }
+
+  return merged;
+}
+
+/**
  * Main parser: takes any pasted text (multi-line, Inovar format, Teams format, natural language)
  * and extracts all entries. If multiple entries exist, returns all of them.
  */
@@ -476,7 +673,7 @@ export function parseTasksFromText(
       }
 
       if (multiEntries.length > 1) {
-        return multiEntries;
+        return mergeConsecutiveTestEntries(multiEntries);
       }
     }
   }
@@ -502,7 +699,7 @@ export function parseTasksFromText(
     });
   }
 
-  return results;
+  return mergeConsecutiveTestEntries(results);
 }
 
 /**
@@ -517,8 +714,9 @@ export function convertParsedEntryToSchoolTask(
   const subName = subInfo?.name || entry.subjectCode;
 
   if (entry.type === 'teste') {
-    // Generate 3 study sessions protecting handball hours
-    studySessions = generateStudyPlan(subName, entry.dueDate, 3);
+    // Generate 4 study sessions for 2-hour tests, 3 for standard tests, protecting handball hours
+    const sessionsCount = entry.isTwoHourBlock ? 4 : 3;
+    studySessions = generateStudyPlan(subName, entry.dueDate, sessionsCount);
   } else if (entry.type === 'trabalho') {
     const dObj = new Date(entry.dueDate);
     const phases = [
@@ -557,7 +755,11 @@ export function convertParsedEntryToSchoolTask(
     dueDate: entry.dueDate,
     dueTime: entry.dueTime,
     timeRange: entry.timeRange,
-    studyPlanDaysBefore: entry.type === 'teste' ? 5 : entry.type === 'trabalho' ? 7 : undefined,
+    teacher: entry.teacher,
+    isTwoHourBlock: entry.isTwoHourBlock,
+    slotCount: entry.slotCount || (entry.isTwoHourBlock ? 2 : 1),
+    estimatedMinutes: entry.estimatedMinutes || (entry.isTwoHourBlock ? 100 : 50),
+    studyPlanDaysBefore: entry.type === 'teste' ? (entry.isTwoHourBlock ? 6 : 5) : entry.type === 'trabalho' ? 7 : undefined,
     studySessions,
     academicYear,
     createdAt: new Date().toISOString(),
@@ -596,7 +798,7 @@ export async function parseTasksWithAi(
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data.tasks) && data.tasks.length > 0) {
-        return data.tasks.map((t: any, idx: number) => ({
+        const rawAiTasks = data.tasks.map((t: any, idx: number) => ({
           id: `ai-parsed-${Date.now()}-${idx}`,
           title: t.title || 'Evento Escolar',
           subjectCode: t.subjectCode || 'MAT',
@@ -607,8 +809,11 @@ export async function parseTasksWithAi(
           dueTime: t.dueTime,
           timeRange: t.timeRange,
           teacher: t.teacher || SUBJECTS[t.subjectCode]?.teacher,
+          isTwoHourBlock: t.isTwoHourBlock,
+          slotCount: t.slotCount,
           selected: true,
         }));
+        return mergeConsecutiveTestEntries(rawAiTasks);
       }
     }
   } catch (err) {

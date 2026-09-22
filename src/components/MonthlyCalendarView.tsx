@@ -495,11 +495,18 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                         return (
                           <div
                             key={task.id}
-                            className="truncate text-[10px] font-black px-1.5 py-0.5 rounded-md bg-red-600 text-white shadow-2xs flex items-center gap-1"
-                            title={`Teste de ${subject ? subject.name : task.subjectCode}: ${task.title}`}
+                            className="truncate text-[10px] font-black px-1.5 py-0.5 rounded-md bg-red-600 text-white shadow-2xs flex items-center justify-between gap-1"
+                            title={`Teste de ${subject ? subject.name : task.subjectCode}: ${task.title}${task.isTwoHourBlock ? ' (2 Tempos / 2h)' : ''}`}
                           >
-                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                            <span>Teste {task.subjectCode}</span>
+                            <span className="flex items-center gap-1 truncate">
+                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0" />
+                              <span className="truncate">Teste {task.subjectCode}</span>
+                            </span>
+                            {task.isTwoHourBlock && (
+                              <span className="text-[9px] bg-red-900/80 px-1 rounded-xs font-black shrink-0">
+                                2h
+                              </span>
+                            )}
                           </div>
                         );
                       }
@@ -655,6 +662,16 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                               <span className="text-xs font-extrabold text-slate-900">
                                 {sub ? sub.name : task.subjectCode}
                               </span>
+                              {task.isTwoHourBlock && (
+                                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-300">
+                                  2 Tempos (2h)
+                                </span>
+                              )}
+                              {task.timeRange && (
+                                <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                  {task.timeRange}
+                                </span>
+                              )}
                             </div>
                             <h5 className="font-bold text-xs sm:text-sm text-slate-900 mt-1 truncate">
                               {task.title}
