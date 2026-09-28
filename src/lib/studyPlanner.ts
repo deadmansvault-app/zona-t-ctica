@@ -1,4 +1,4 @@
-import { StudySession, AlertColor } from '../types';
+import { StudySession, AlertColor, SchoolTask } from '../types';
 
 /**
  * Calculates alert color based on days remaining:
@@ -65,7 +65,6 @@ export function getUrgencyStatus(
 
 /**
  * Generates an automated study plan (2 to 3 sessions) before a test or deadline.
- * Strictly respects handball training on Mondays, Wednesdays, and Fridays (20h00 - 22h00).
  */
 export function generateStudyPlan(
   subjectName: string,
@@ -88,17 +87,13 @@ export function generateStudyPlan(
     candidateDate.setDate(targetDate.getDate() - dayOffset);
     const dayOfWeek = candidateDate.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
 
-    const isHandballDay = dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5; // Segundas, Quartas, Sextas
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-    let timeRange = '18:00 - 18:45';
-    if (isHandballDay) {
-      // Must be well before handball starts at 20:00!
-      timeRange = '17:45 - 18:35 (Antes do Andebol das 20h)';
-    } else if (isWeekend) {
+    let timeRange = '18:00 - 18:50';
+    if (isWeekend) {
       timeRange = '10:30 - 11:20 (Manhã de fim de semana)';
     } else {
-      timeRange = '18:15 - 19:00';
+      timeRange = '18:00 - 18:50';
     }
 
     const isoDate = candidateDate.toISOString().split('T')[0];
@@ -116,4 +111,71 @@ export function generateStudyPlan(
   }
 
   return sessions;
+}
+
+/**
+ * Removes any historical or residual references to handball (andebol)
+ * from text fields such as session timeRanges, topics, or descriptions.
+ */
+export function cleanHandballFromText(text?: string): string {
+  if (!text) return '';
+  return text
+    // Remove variations like "(Antes do treino de Andebol)", "(Antes do Andebol)", "(antes do andebol)"
+    .replace(/\s*\(\s*(?:antes do\s+(?:treino de\s+)?)?andebol\s*\)/gi, '')
+    // Remove " - Antes do treino de Andebol", " - Antes do Andebol"
+    .replace(/\s*[-–—]\s*antes do\s+(?:treino de\s+)?andebol\b/gi, '')
+    // Remove "Antes do treino de Andebol", "Antes do Andebol"
+    .replace(/\bantes do\s+(?:treino de\s+)?andebol\b/gi, '')
+    // Remove standalone "(Andebol)" or "[Andebol]"
+    .replace(/\s*[\(\[]\s*andebol\s*[\)\]]/gi, '')
+    // Remove any remaining "andebol" mentions
+    .replace(/\bandebol\b/gi, '')
+    // Clean up multiple spaces and trailing dashes/spaces
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s*[-–—]\s*$/, '')
+    .trim();
+}
+
+/**
+ * Sanitizes an existing task to ensure its studySessions, topics, and descriptions
+ * contain no residual references to handball training.
+ */
+export function sanitizeTaskStudySessions(task: SchoolTask): { sanitizedTask: SchoolTask; changed: boolean } {
+  let changed = false;
+
+  let newSessions = task.studySessions;
+  if (task.studySessions && task.studySessions.length > 0) {
+    newSessions = task.studySessions.map((session) => {
+      const cleanTime = cleanHandballFromText(session.timeRange);
+      const cleanTopic = cleanHandballFromText(session.topic);
+      if (cleanTime !== session.timeRange || cleanTopic !== session.topic) {
+        changed = true;
+        return {
+          ...session,
+          timeRange: cleanTime,
+          topic: cleanTopic,
+        };
+      }
+      return session;
+    });
+  }
+
+  const cleanDescription = cleanHandballFromText(task.description);
+  if (cleanDescription !== task.description) {
+    changed = true;
+  }
+
+  const cleanTitle = cleanHandballFromText(task.title);
+  if (cleanTitle !== task.title) {
+    changed = true;
+  }
+
+  const sanitizedTask: SchoolTask = {
+    ...task,
+    title: cleanTitle,
+    description: cleanDescription,
+    studySessions: newSessions,
+  };
+
+  return { sanitizedTask, changed };
 }

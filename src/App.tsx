@@ -678,7 +678,7 @@ export default function App() {
             <span>Zona de Treino • Organização & Estudo</span>
           </p>
           <p className="text-[11px] text-slate-400">
-            Andebol: Segundas, Quartas e Sextas (20h-22h) • "E Pluribus Unum"
+            "E Pluribus Unum" • Foco, Disciplina & Sucesso Escolar
           </p>
         </div>
       </footer>

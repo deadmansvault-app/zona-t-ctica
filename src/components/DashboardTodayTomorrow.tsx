@@ -5,7 +5,6 @@ import {
   Clock,
   Briefcase,
   AlertCircle,
-  Dumbbell,
   ArrowRight,
   Sparkles,
   ChevronDown,
@@ -14,7 +13,7 @@ import {
   Sun,
 } from 'lucide-react';
 import { SchoolTask, ScheduleItem, AppSettings } from '../types';
-import { SUBJECTS, TIME_SLOTS, HANDBALL_TRAINING } from '../data/timetableData';
+import { SUBJECTS, TIME_SLOTS } from '../data/timetableData';
 import { TaskCard } from './TaskCard';
 import { MbappeCorner } from './MbappeCorner';
 
@@ -103,14 +102,6 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
   const nextSchoolClasses = schedule
     .filter((s) => s.dayOfWeek === nextSchoolDayOfWeek)
     .sort((a, b) => a.timeIndex - b.timeIndex);
-
-  // Check if today has handball training (Mon=1, Wed=3, Fri=5)
-  // NEVER on Saturday or Sunday!
-  const hasHandballToday =
-    !isWeekend && HANDBALL_TRAINING.days.includes(todayDayOfWeek as 1 | 3 | 5);
-
-  // Check if the next school day has handball training
-  const hasHandballNextSchoolDay = HANDBALL_TRAINING.days.includes(nextSchoolDayOfWeek);
 
   // Tasks due today & due on next school day
   const tasksDueToday = tasks.filter((t) => t.dueDate === todayStr);
@@ -205,28 +196,6 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
       {/* VIEW: HOJE */}
       {activeDayView === 'hoje' && (
         <div className="space-y-6 animate-in fade-in duration-150">
-          {/* Handball Banner if today has training (Only on weekdays!) */}
-          {hasHandballToday && (
-            <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-                  <Dumbbell className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-extrabold text-sm sm:text-base">
-                    Hoje há Treino de Andebol! (20h00 às 22h00)
-                  </h4>
-                  <p className="text-xs text-amber-100">
-                    Horário bloqueado. Todo o estudo e TPCs devem ser terminados antes das 19h45!
-                  </p>
-                </div>
-              </div>
-              <span className="text-xs font-bold uppercase bg-white/20 px-3 py-1 rounded-lg border border-white/20 hidden sm:inline-block">
-                Pavilhão
-              </span>
-            </div>
-          )}
-
           {/* If Weekend: Warm supportive banner for Saturday or Sunday */}
           {isWeekend ? (
             <div className="bg-gradient-to-br from-emerald-50 via-teal-50/40 to-slate-50 rounded-2xl border border-emerald-200 p-5 sm:p-6 shadow-xs">
@@ -401,32 +370,6 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
       {/* VIEW: AMANHÃ & MOCHILA (OU PRÓXIMO DIA LETIVO NOS FINS DE SEMANA) */}
       {activeDayView === 'amanha' && (
         <div className="space-y-6 animate-in fade-in duration-150">
-          {/* Handball Banner if Next School Day has training */}
-          {hasHandballNextSchoolDay && (
-            <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-                  <Dumbbell className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-extrabold text-sm sm:text-base">
-                    {isFriday || isSaturday
-                      ? 'Na Segunda-feira tens Treino de Andebol! (20h00 às 22h00)'
-                      : isSunday
-                      ? 'Amanhã (Segunda-feira) tens Treino de Andebol! (20h00 às 22h00)'
-                      : `Amanhã (${nextSchoolDayName}) tens Treino de Andebol! (20h00 às 22h00)`}
-                  </h4>
-                  <p className="text-xs text-amber-100">
-                    Lembra-te de levar o saco de andebol com o equipamento pronto.
-                  </p>
-                </div>
-              </div>
-              <span className="text-xs font-bold uppercase bg-white/20 px-3 py-1 rounded-lg border border-white/20 hidden sm:inline-block">
-                Pavilhão
-              </span>
-            </div>
-          )}
-
           {/* Mochila (Crucial for ADHD routine) */}
           <div className="bg-gradient-to-br from-red-50 to-rose-50/50 rounded-2xl border-2 border-red-200 p-5 shadow-xs">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">

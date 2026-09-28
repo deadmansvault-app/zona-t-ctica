@@ -161,13 +161,6 @@ export const INITIAL_SCHEDULE: ScheduleItem[] = [
   { id: 'fri-4', dayOfWeek: 5, timeIndex: 4, subjectCode: 'ING', room: 'S15' },
 ];
 
-export const HANDBALL_TRAINING = {
-  days: [1, 3, 5], // Segundas, Quartas e Sextas
-  daysLabel: 'Segundas, Quartas e Sextas',
-  timeRange: '20:00 às 22:00',
-  description: 'Treino de Andebol no Pavilhão (Horário protegido e bloqueado para estudo)',
-};
-
 export const DEFAULT_SETTINGS: AppSettings = {
   greenDaysThreshold: 5, // > 5 dias: Verde
   yellowDaysThreshold: 3, // 3 a 5 dias: Amarelo

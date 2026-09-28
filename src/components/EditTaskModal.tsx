@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Pencil, BookOpen, Clock, Dumbbell, Sparkles, AlertCircle } from 'lucide-react';
+import { X, Calendar, Pencil, BookOpen, Clock, Sparkles, AlertCircle } from 'lucide-react';
 import { SchoolTask, TaskType } from '../types';
 import { SUBJECTS } from '../data/timetableData';
-import { generateStudyPlan } from '../lib/studyPlanner';
+import { generateStudyPlan, sanitizeTaskStudySessions } from '../lib/studyPlanner';
 
 interface EditTaskModalProps {
   isOpen: boolean;
@@ -67,7 +67,8 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
       studyPlanDaysBefore: task.studyPlanDaysBefore || (type === 'teste' ? 5 : undefined),
     };
 
-    onSaveTask(updatedTask);
+    const { sanitizedTask } = sanitizeTaskStudySessions(updatedTask);
+    onSaveTask(sanitizedTask);
     onClose();
   };
 
@@ -257,8 +258,8 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
                     ))}
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
-                    <Dumbbell className="w-3 h-3 text-amber-500" />
-                    <span>Mantém a proteção dos treinos de andebol às 20h00.</span>
+                    <BookOpen className="w-3 h-3 text-blue-500" />
+                    <span>Distribuição de sessões para estudo espaçado e revisão eficaz.</span>
                   </p>
                 </div>
               )}

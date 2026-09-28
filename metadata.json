@@ -1,6 +1,6 @@
 {
   "name": "Zona de Treino",
-  "description": "Organizador escolar visual com horário, TPCs, testes, plano de estudo sem andebol e check-in com foto.",
+  "description": "Organizador escolar visual com horário, TPCs, testes, planos de estudo e check-in com foto.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

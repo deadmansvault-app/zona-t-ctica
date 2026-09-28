@@ -1,5 +1,6 @@
 import { SchoolTask, TaskType, CheckInRecord, ScheduleItem, AppSettings, CheckInAlert, ActivityLog, ActivityActionType } from '../types';
 import { INITIAL_TASKS, INITIAL_SCHEDULE, DEFAULT_SETTINGS } from '../data/timetableData';
+import { sanitizeTaskStudySessions } from './studyPlanner';
 import {
   db,
   auth,
@@ -122,8 +123,8 @@ export async function loadTasks(): Promise<SchoolTask[]> {
       const store = transaction.objectStore('tasks');
       const request = store.getAll();
       request.onsuccess = () => {
-        const result = request.result as SchoolTask[];
-        if ((!result || result.length === 0) && !hasSeeded) {
+        const rawResult = (request.result as SchoolTask[]) || [];
+        if (rawResult.length === 0 && !hasSeeded) {
           // Seed with initial tasks ONLY on first ever run before user has configured anything
           const txWrite = db.transaction('tasks', 'readwrite');
           const storeWrite = txWrite.objectStore('tasks');
@@ -137,7 +138,26 @@ export async function loadTasks(): Promise<SchoolTask[]> {
           try {
             localStorage.setItem(`${FALLBACK_PREFIX}has_seeded`, 'true');
           } catch {}
-          resolve(result || []);
+
+          // Sanitize any existing tasks to clean residual handball references
+          let anyChanged = false;
+          const cleanedTasks = rawResult.map((t) => {
+            const { sanitizedTask, changed } = sanitizeTaskStudySessions(t);
+            if (changed) anyChanged = true;
+            return sanitizedTask;
+          });
+
+          if (anyChanged) {
+            // Asynchronously persist the sanitized versions
+            try {
+              localStorage.setItem(`${FALLBACK_PREFIX}tasks`, JSON.stringify(cleanedTasks));
+              const txClean = db.transaction('tasks', 'readwrite');
+              const storeClean = txClean.objectStore('tasks');
+              cleanedTasks.forEach((t) => storeClean.put(t));
+            } catch {}
+          }
+
+          resolve(cleanedTasks);
         }
       };
       request.onerror = () => {
@@ -155,7 +175,17 @@ function loadTasksFromLocalStorage(): SchoolTask[] {
   try {
     const raw = localStorage.getItem(`${FALLBACK_PREFIX}tasks`);
     if (raw !== null) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw) as SchoolTask[];
+      let anyChanged = false;
+      const cleaned = parsed.map((t) => {
+        const { sanitizedTask, changed } = sanitizeTaskStudySessions(t);
+        if (changed) anyChanged = true;
+        return sanitizedTask;
+      });
+      if (anyChanged) {
+        localStorage.setItem(`${FALLBACK_PREFIX}tasks`, JSON.stringify(cleaned));
+      }
+      return cleaned;
     }
     if (!hasSeeded) {
       localStorage.setItem(`${FALLBACK_PREFIX}has_seeded`, 'true');
@@ -169,20 +199,22 @@ function loadTasksFromLocalStorage(): SchoolTask[] {
 }
 
 export async function saveTask(task: SchoolTask): Promise<void> {
+  const { sanitizedTask } = sanitizeTaskStudySessions(task);
+
   // 1. Save to local IndexedDB & LocalStorage for instant UI update
   try {
     const dbInst = await openDatabase();
     const tx = dbInst.transaction('tasks', 'readwrite');
-    tx.objectStore('tasks').put(task);
+    tx.objectStore('tasks').put(sanitizedTask);
   } catch (err) {
     console.warn('Erro no IndexedDB:', err);
   }
   try {
     const raw = localStorage.getItem(`${FALLBACK_PREFIX}tasks`);
     let tasks: SchoolTask[] = raw ? JSON.parse(raw) : [];
-    const idx = tasks.findIndex((t) => t.id === task.id);
-    if (idx >= 0) tasks[idx] = task;
-    else tasks.unshift(task);
+    const idx = tasks.findIndex((t) => t.id === sanitizedTask.id);
+    if (idx >= 0) tasks[idx] = sanitizedTask;
+    else tasks.unshift(sanitizedTask);
     localStorage.setItem(`${FALLBACK_PREFIX}tasks`, JSON.stringify(tasks));
     localStorage.setItem(`${FALLBACK_PREFIX}has_seeded`, 'true');
   } catch {
@@ -191,9 +223,9 @@ export async function saveTask(task: SchoolTask): Promise<void> {
 
   // 2. Sync to Firebase Firestore if user is authenticated or firestore available
   if (auth.currentUser) {
-    const path = `tasks/${task.id}`;
+    const path = `tasks/${sanitizedTask.id}`;
     try {
-      await setDoc(doc(db, 'tasks', task.id), cleanForFirestore(task));
+      await setDoc(doc(db, 'tasks', sanitizedTask.id), cleanForFirestore(sanitizedTask));
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, path);
     }
@@ -245,9 +277,23 @@ export function subscribeToFirebaseTasks(onUpdate: (tasks: SchoolTask[]) => void
     collection(db, path),
     (snapshot) => {
       const cloudTasks: SchoolTask[] = [];
+      const tasksToMigrate: SchoolTask[] = [];
+
       snapshot.forEach((docSnap) => {
-        cloudTasks.push(docSnap.data() as SchoolTask);
+        const rawTask = docSnap.data() as SchoolTask;
+        const { sanitizedTask, changed } = sanitizeTaskStudySessions(rawTask);
+        cloudTasks.push(sanitizedTask);
+        if (changed) {
+          tasksToMigrate.push(sanitizedTask);
+        }
       });
+
+      // Automatically migrate any tasks with legacy handball references in Firestore
+      if (tasksToMigrate.length > 0 && auth.currentUser) {
+        tasksToMigrate.forEach((t) => {
+          setDoc(doc(db, 'tasks', t.id), cleanForFirestore(t)).catch(() => {});
+        });
+      }
 
       // Update local storage and IndexedDB with cloud authority
       try {

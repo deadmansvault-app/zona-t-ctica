@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CheckCircle2, Clock, Camera, AlertTriangle, Calendar, BookOpen, Trash2, Eye, ExternalLink, Pencil } from 'lucide-react';
 import { SchoolTask, AppSettings } from '../types';
 import { SUBJECTS } from '../data/timetableData';
-import { getUrgencyStatus } from '../lib/studyPlanner';
+import { getUrgencyStatus, cleanHandballFromText } from '../lib/studyPlanner';
 import { getTaskGoogleCalendarUrl } from '../lib/googleCalendar';
 
 interface TaskCardProps {
@@ -180,7 +180,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             <div className="mb-4 bg-slate-50 rounded-xl p-3 border border-slate-200/80">
               <p className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <BookOpen className="w-3.5 h-3.5 text-red-600" />
-                <span>Plano de Estudo Sugerido (Sem Andebol)</span>
+                <span>Plano de Estudo Sugerido</span>
               </p>
               <div className="space-y-1.5">
                 {task.studySessions.map((session, sIdx) => {
@@ -207,9 +207,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                       />
                       <label htmlFor={`sess-${session.id}`} className="cursor-pointer flex-1">
                         <span className="font-bold text-slate-900">{sDate}:</span>{' '}
-                        <span className="text-red-700 font-semibold">[{session.timeRange}]</span> —{' '}
+                        <span className="text-red-700 font-semibold">[{cleanHandballFromText(session.timeRange)}]</span> —{' '}
                         <span className={session.completed ? 'line-through text-slate-500' : ''}>
-                          {session.topic}
+                          {cleanHandballFromText(session.topic)}
                         </span>
                       </label>
                     </div>

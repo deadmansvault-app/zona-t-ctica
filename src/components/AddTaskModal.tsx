@@ -6,7 +6,6 @@ import {
   Sparkles,
   BookOpen,
   Clock,
-  Dumbbell,
   Users,
   Wand2,
   FileText,
@@ -668,10 +667,10 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     </select>
                   </div>
 
-                  <div className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200">
-                    <Dumbbell className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex items-start gap-1.5 text-[11px] text-blue-800 bg-blue-50 p-2 rounded-lg border border-blue-200">
+                    <BookOpen className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
                     <span>
-                      <strong>Proteção de Andebol:</strong> O plano ignora automaticamente as segundas, quartas e sextas das 20h00 às 22h00.
+                      <strong>Estudo Espaçado:</strong> As sessões são distribuídas automaticamente nos dias anteriores ao teste para uma melhor consolidação.
                     </span>
                   </div>
                 </div>

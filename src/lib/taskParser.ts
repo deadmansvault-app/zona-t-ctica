@@ -714,7 +714,7 @@ export function convertParsedEntryToSchoolTask(
   const subName = subInfo?.name || entry.subjectCode;
 
   if (entry.type === 'teste') {
-    // Generate 4 study sessions for 2-hour tests, 3 for standard tests, protecting handball hours
+    // Generate 4 study sessions for 2-hour tests, 3 for standard tests
     const sessionsCount = entry.isTwoHourBlock ? 4 : 3;
     studySessions = generateStudyPlan(subName, entry.dueDate, sessionsCount);
   } else if (entry.type === 'trabalho') {

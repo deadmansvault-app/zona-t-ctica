@@ -647,7 +647,7 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 flex items-start gap-2">
                 <CalendarCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
-                  <strong>Integração com o Google Agenda:</strong> Sincroniza todos os testes, entregas de TPC, trabalhos de grupo e treinos de andebol diretamente no Google Calendar do telemóvel ou computador.
+                  <strong>Integração com o Google Agenda:</strong> Sincroniza todos os testes, entregas de TPC e trabalhos de grupo diretamente no Google Calendar do telemóvel ou computador.
                 </div>
               </div>
 

@@ -1,5 +1,6 @@
 import { SchoolTask, ScheduleItem, AppSettings } from '../types';
-import { SUBJECTS, TIME_SLOTS, HANDBALL_TRAINING } from '../data/timetableData';
+import { SUBJECTS, TIME_SLOTS } from '../data/timetableData';
+import { cleanHandballFromText } from './studyPlanner';
 
 interface GoogleEventOptions {
   title: string;
@@ -80,7 +81,12 @@ export function getTaskGoogleCalendarUrl(task: SchoolTask, schoolName = 'Escola 
     `Disciplina: ${subject} (${task.subjectCode})`,
     teacher ? `Professor(a): ${teacher}` : '',
     `Descrição: ${task.description}`,
-    task.studySessions?.length ? `\nSessões de Estudo Planeadas:\n` + task.studySessions.map(s => `- ${s.date} (${s.timeRange}): ${s.topic}`).join('\n') : '',
+    task.studySessions?.length
+      ? `\nSessões de Estudo Planeadas:\n` +
+        task.studySessions
+          .map((s) => `- ${s.date} (${cleanHandballFromText(s.timeRange)}): ${cleanHandballFromText(s.topic)}`)
+          .join('\n')
+      : '',
     `\nZona de Treino`,
   ].filter(Boolean).join('\n');
 
@@ -94,7 +100,7 @@ export function getTaskGoogleCalendarUrl(task: SchoolTask, schoolName = 'Escola 
 }
 
 /**
- * Generates an iCalendar (.ics) string with all tasks, tests, handball, and timetable slots.
+ * Generates an iCalendar (.ics) string with all tasks, tests, and timetable slots.
  * This can be imported into Google Calendar, Android, iPhone, Outlook, etc.
  */
 export function generateIcsCalendar(
@@ -151,7 +157,8 @@ export function generateIcsCalendar(
     // Add study sessions as distinct events
     if (task.studySessions) {
       task.studySessions.forEach((session) => {
-        const [startTime, endTime] = session.timeRange.split(' - ').map((s) => s.trim());
+        const cleanTime = cleanHandballFromText(session.timeRange);
+        const [startTime, endTime] = cleanTime.split(' - ').map((s) => s.trim());
         const sDt = formatIcsDate(session.date, startTime);
         const sEnd = formatIcsDate(session.date, endTime);
 
@@ -160,24 +167,12 @@ export function generateIcsCalendar(
         lines.push(`DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`);
         lines.push(`DTSTART:${sDt.value}`);
         lines.push(`DTEND:${sEnd.value}`);
-        lines.push(`SUMMARY:Estudo: ${escapeIcs(task.subjectCode)} - ${escapeIcs(session.topic)}`);
-        lines.push(`DESCRIPTION:${escapeIcs(`Preparação para ${task.title}\\nMeta: ${session.topic}`)}`);
+        lines.push(`SUMMARY:Estudo: ${escapeIcs(task.subjectCode)} - ${escapeIcs(cleanHandballFromText(session.topic))}`);
+        lines.push(`DESCRIPTION:${escapeIcs(`Preparação para ${task.title}\\nMeta: ${cleanHandballFromText(session.topic)}`)}`);
         lines.push('END:VEVENT');
       });
     }
   });
-
-  // Add Handball Training as recurring weekly event
-  lines.push('BEGIN:VEVENT');
-  lines.push('UID:andebol-treino-slb@focoescolar.local');
-  lines.push(`DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`);
-  lines.push('DTSTART:20260907T200000');
-  lines.push('DTEND:20260907T220000');
-  lines.push('RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR');
-  lines.push('SUMMARY:🤾 Treino de Andebol');
-  lines.push('DESCRIPTION:Treino no Pavilhão (Segundas, Quartas e Sextas das 20h00 às 22h00)');
-  lines.push('LOCATION:Pavilhão Desportivo');
-  lines.push('END:VEVENT');
 
   lines.push('END:VCALENDAR');
   return lines.join('\r\n');
@@ -224,18 +219,4 @@ export function exportAllToIcs(tasks: SchoolTask[], schoolName = 'Escola Básica
   };
   const ics = generateIcsCalendar(tasks, [], dummySettings);
   downloadIcsFile('zona_de_treino_calendario.ics', ics);
-}
-
-/**
- * Returns Google Calendar web template URL for Handball training
- */
-export function getHandballGoogleCalendarUrl(): string {
-  return createGoogleCalendarUrl({
-    title: '🤾 Treino de Andebol',
-    details: 'Treino de Andebol - Pavilhão Desportivo. Segundas, Quartas e Sextas das 20h00 às 22h00.',
-    location: 'Pavilhão Desportivo',
-    startDate: '2026-09-07',
-    startTime: '20:00',
-    endTime: '22:00',
-  });
 }

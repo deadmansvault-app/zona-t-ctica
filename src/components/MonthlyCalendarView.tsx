@@ -18,10 +18,10 @@ import {
 } from 'lucide-react';
 import { SchoolTask, ScheduleItem, AppSettings, TaskType } from '../types';
 import { SUBJECTS, TIME_SLOTS } from '../data/timetableData';
+import { cleanHandballFromText } from '../lib/studyPlanner';
 import {
   exportAllToIcs,
   getTaskGoogleCalendarUrl,
-  getHandballGoogleCalendarUrl,
 } from '../lib/googleCalendar';
 
 interface MonthlyCalendarViewProps {
@@ -51,7 +51,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   const [selectedDateStr, setSelectedDateStr] = useState<string>(
     today.toISOString().split('T')[0]
   );
-  const [filterType, setFilterType] = useState<'all' | 'teste' | 'tpc' | 'andebol'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'teste' | 'tpc' | 'trabalho'>('all');
   const [showGoogleModal, setShowGoogleModal] = useState(false);
 
   // Month navigation
@@ -171,19 +171,22 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
     const tpcs = monthTasks.filter((t) => t.type === 'tpc');
     const confirmedCount = monthTasks.filter((t) => t.checkIn).length;
 
+    let totalStudySessions = 0;
+    tasks.forEach((t) => {
+      if (t.studySessions) {
+        totalStudySessions += t.studySessions.filter((s) => s.date >= startStr && s.date <= endStr).length;
+      }
+    });
+
     return {
       totalTests: tests.length,
       totalWorks: works.length,
       totalTpcs: tpcs.length,
+      totalStudySessions,
       confirmedCount,
       pendingCount: monthTasks.length - confirmedCount,
     };
   }, [tasks, currentYear, currentMonth]);
-
-  // Is handball day: Monday (0), Wednesday (2), Friday (4) in 0-indexed week (Seg=0)
-  const isHandballDay = (dayOfWeek: number) => {
-    return dayOfWeek === 0 || dayOfWeek === 2 || dayOfWeek === 4;
-  };
 
   const todayStr = today.toISOString().split('T')[0];
 
@@ -194,7 +197,6 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   }, [selectedDateStr]);
 
   const selectedDayOfWeek = (selectedDateObj.getDay() + 6) % 7; // 0=Segunda, 4=Sexta
-  const isSelectedHandball = isHandballDay(selectedDayOfWeek);
 
   const selectedDateTasks = tasksByDate[selectedDateStr] || [];
   const selectedDateSessions = studySessionsByDate[selectedDateStr] || [];
@@ -226,7 +228,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                 <span>Calendário Escolar Mensal</span>
               </h2>
               <p className="text-xs text-slate-500">
-                Visão panorâmica de testes, TPCs, planos de estudo e treinos de andebol.
+                Visão panorâmica de testes, TPCs, planos de estudo e horários escolares.
               </p>
             </div>
           </div>
@@ -325,15 +327,15 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-2xs">
+        <div className="bg-white rounded-2xl border border-purple-100 p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500">Andebol</span>
-            <span className="text-sm">🤾</span>
+            <span className="text-xs font-bold text-slate-500">Plano de Estudo</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-purple-600" />
           </div>
-          <p className="text-xs font-black text-slate-800 mt-1.5">
-            Seg, Qua & Sex
+          <p className="text-2xl font-black text-slate-900 mt-1">
+            {monthStats.totalStudySessions}
           </p>
-          <p className="text-[11px] text-slate-500 mt-0.5">20h00 às 22h00</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Sessões planeadas</p>
         </div>
       </div>
 
@@ -362,6 +364,16 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
             Apenas Testes
           </button>
           <button
+            onClick={() => setFilterType('trabalho')}
+            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+              filterType === 'trabalho'
+                ? 'bg-blue-600 text-white shadow-2xs'
+                : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+            }`}
+          >
+            Trabalhos
+          </button>
+          <button
             onClick={() => setFilterType('tpc')}
             className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
               filterType === 'tpc'
@@ -370,16 +382,6 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
             }`}
           >
             Apenas TPC
-          </button>
-          <button
-            onClick={() => setFilterType('andebol')}
-            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-              filterType === 'andebol'
-                ? 'bg-indigo-600 text-white shadow-2xs'
-                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
-            }`}
-          >
-            Dias de Andebol
           </button>
         </div>
 
@@ -394,7 +396,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> TPC
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" /> Andebol
+            <span className="w-2.5 h-2.5 rounded-full bg-purple-600" /> Estudo
           </span>
         </div>
       </div>
@@ -422,17 +424,14 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
               const daySessions = studySessionsByDate[cell.dateStr] || [];
               const isToday = cell.dateStr === todayStr;
               const isSelected = cell.dateStr === selectedDateStr;
-              const handball = isHandballDay(cell.dayOfWeek);
 
               // Filter check
               const filteredDayTasks = dayTasks.filter((t) => {
                 if (filterType === 'teste') return t.type === 'teste';
+                if (filterType === 'trabalho') return t.type === 'trabalho';
                 if (filterType === 'tpc') return t.type === 'tpc';
                 return true;
               });
-
-              const showHandballBadge =
-                (filterType === 'all' || filterType === 'andebol') && handball;
 
               return (
                 <div
@@ -465,27 +464,10 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                     >
                       {cell.dayNum}
                     </span>
-
-                    {/* Small handball ball indicator on compact view */}
-                    {handball && (
-                      <span
-                        className="text-[10px] hidden sm:inline"
-                        title="Treino de Andebol às 20h00"
-                      >
-                        🤾
-                      </span>
-                    )}
                   </div>
 
                   {/* Badges / Chips */}
                   <div className="space-y-1 overflow-hidden flex-1">
-                    {/* Handball badge on mobile/desktop */}
-                    {showHandballBadge && (
-                      <div className="truncate text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 hidden sm:block">
-                        Andebol 20h
-                      </div>
-                    )}
-
                     {/* Tasks badges */}
                     {filteredDayTasks.slice(0, 3).map((task) => {
                       const subject = SUBJECTS[task.subjectCode];
@@ -584,21 +566,6 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                 })}
               </h3>
             </div>
-
-            {/* Handball Notice for Selected Date */}
-            {isSelectedHandball && (
-              <div className="p-3 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-xl flex items-start gap-2.5">
-                <span className="text-xl">🤾</span>
-                <div>
-                  <h4 className="text-xs font-black text-indigo-950">
-                    Treino de Andebol (20h00 às 22h00)
-                  </h4>
-                  <p className="text-[11px] text-indigo-800 leading-snug mt-0.5">
-                    Os TPCs e estudo devem estar concluídos antes das 19h45 para ir treinar com tranquilidade!
-                  </p>
-                </div>
-              </div>
-            )}
 
             {/* Tasks on this Day */}
             <div className="space-y-2">
@@ -752,7 +719,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                                     className="rounded text-red-600 focus:ring-0 cursor-pointer"
                                   />
                                   <span className={s.completed ? 'line-through text-slate-400' : 'text-slate-700 font-medium'}>
-                                    {s.date}: {s.topic} ({s.timeRange})
+                                    {s.date}: {cleanHandballFromText(s.topic)} ({cleanHandballFromText(s.timeRange)})
                                   </span>
                                 </div>
                               </div>
@@ -834,7 +801,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
 
             <div className="p-5 space-y-4">
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Podes exportar todos os testes, trabalhos de grupo, TPCs e treinos de andebol do Francisco para o teu <strong>Google Calendar</strong> pessoal ou de família.
+                Podes exportar todos os testes, trabalhos de grupo e TPCs do Francisco para o teu <strong>Google Calendar</strong> pessoal ou de família.
               </p>
 
               <div className="space-y-2.5">
@@ -886,31 +853,6 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                   </div>
                   <span className="text-xs font-bold text-slate-700 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
                     Abrir ↗
-                  </span>
-                </a>
-
-                {/* Add Handball to Google Calendar */}
-                <a
-                  href={getHandballGoogleCalendarUrl()}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full p-3.5 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100/70 transition-all flex items-center justify-between group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center font-bold text-xs">
-                      SLB
-                    </div>
-                    <div>
-                      <p className="text-xs font-black text-amber-950">
-                        Adicionar Treino de Andebol ao Google Agenda
-                      </p>
-                      <p className="text-[11px] text-amber-800">
-                        Segundas, Quartas e Sextas das 20h00 às 22h00
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-bold text-amber-900 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-2xs">
-                    Criar no Google ↗
                   </span>
                 </a>
               </div>

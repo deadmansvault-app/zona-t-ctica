@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Calendar,
-  Dumbbell,
   User,
   MapPin,
   Edit2,
@@ -12,7 +11,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { ScheduleItem, AppSettings } from '../types';
-import { SUBJECTS, TIME_SLOTS, HANDBALL_TRAINING } from '../data/timetableData';
+import { SUBJECTS, TIME_SLOTS } from '../data/timetableData';
 import { ScheduleModal } from './ScheduleModal';
 
 interface TimetableViewProps {
@@ -37,12 +36,12 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
   const [modalDefaultDay, setModalDefaultDay] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-  const days: { dayNumber: 1 | 2 | 3 | 4 | 5; name: string; short: string; isHandball: boolean }[] = [
-    { dayNumber: 1, name: 'Segunda-feira', short: 'Seg', isHandball: true },
-    { dayNumber: 2, name: 'Terça-feira', short: 'Ter', isHandball: false },
-    { dayNumber: 3, name: 'Quarta-feira', short: 'Qua', isHandball: true },
-    { dayNumber: 4, name: 'Quinta-feira', short: 'Qui', isHandball: false },
-    { dayNumber: 5, name: 'Sexta-feira', short: 'Sex', isHandball: true },
+  const days: { dayNumber: 1 | 2 | 3 | 4 | 5; name: string; short: string }[] = [
+    { dayNumber: 1, name: 'Segunda-feira', short: 'Seg' },
+    { dayNumber: 2, name: 'Terça-feira', short: 'Ter' },
+    { dayNumber: 3, name: 'Quarta-feira', short: 'Qua' },
+    { dayNumber: 4, name: 'Quinta-feira', short: 'Qui' },
+    { dayNumber: 5, name: 'Sexta-feira', short: 'Sex' },
   ];
 
   const handleOpenAdd = (day: 1 | 2 | 3 | 4 | 5 = 1) => {
@@ -86,7 +85,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
           </p>
         </div>
 
-        {/* Action Controls & Handball Training Fixed Banner */}
+        {/* Action Controls */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
           {onAddScheduleItem && (
             <button
@@ -108,20 +107,6 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
               <span>Repor Padrão</span>
             </button>
           )}
-
-          <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl p-3 shadow-xs flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
-              <Dumbbell className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-wide">
-                Treino de Andebol
-              </p>
-              <p className="text-xs font-bold text-white">
-                {HANDBALL_TRAINING.daysLabel}: {HANDBALL_TRAINING.timeRange}
-              </p>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -202,15 +187,6 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
-                  )}
-                  {day.isHandball && (
-                    <span
-                      className="text-[10px] font-black uppercase bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs"
-                      title="Andebol das 20h00 às 22h00"
-                    >
-                      <Dumbbell className="w-3 h-3" />
-                      Andebol
-                    </span>
                   )}
                 </div>
               </div>
@@ -317,18 +293,6 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
                   </button>
                 )}
 
-                {/* Handball footer block for Mon, Wed, Fri */}
-                {day.isHandball && (
-                  <div className="mt-3 p-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-950 text-xs">
-                    <p className="font-extrabold flex items-center gap-1.5 text-amber-900">
-                      <Dumbbell className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Andebol: 20h00 - 22h00</span>
-                    </p>
-                    <p className="text-[10px] text-amber-800 mt-0.5">
-                      Treino no pavilhão da escola / clube.
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           );
