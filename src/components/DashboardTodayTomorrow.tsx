@@ -16,6 +16,7 @@ import { SchoolTask, ScheduleItem, AppSettings } from '../types';
 import { SUBJECTS, TIME_SLOTS } from '../data/timetableData';
 import { TaskCard } from './TaskCard';
 import { MbappeCorner } from './MbappeCorner';
+import { BenficaDashboardWidget } from './BenficaDashboardWidget';
 
 interface DashboardTodayTomorrowProps {
   tasks: SchoolTask[];
@@ -29,6 +30,7 @@ interface DashboardTodayTomorrowProps {
   onToggleSession: (taskId: string, sessionId: string) => void;
   onOpenScheduleTab: () => void;
   onOpenAddTask: () => void;
+  onOpenBenficaTab?: () => void;
 }
 
 export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
@@ -43,6 +45,7 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
   onToggleSession,
   onOpenScheduleTab,
   onOpenAddTask,
+  onOpenBenficaTab,
 }) => {
   const [activeDayView, setActiveDayView] = useState<'hoje' | 'amanha'>('hoje');
   const [showColorExplanation, setShowColorExplanation] = useState(false);
@@ -135,6 +138,11 @@ export const DashboardTodayTomorrow: React.FC<DashboardTodayTomorrowProps> = ({
     <div className="space-y-6">
       {/* Motivational Mbappe / Real Madrid & Benfica Banner */}
       <MbappeCorner />
+
+      {/* SL Benfica Match Day / Next Match Widget */}
+      {onOpenBenficaTab && (
+        <BenficaDashboardWidget onOpenBenficaTab={onOpenBenficaTab} />
+      )}
 
       {/* Day Selector (Hoje vs Amanhã / Mochila) - Prominent & ADHD Clean */}
       <div className="bg-white rounded-2xl p-2 border border-slate-200 shadow-xs flex items-center gap-2">

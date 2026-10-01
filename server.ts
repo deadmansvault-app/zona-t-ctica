@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Type } from '@google/genai';
+import { getBenficaMatches } from './src/server/benficaMatchesService';
 
 dotenv.config();
 
@@ -33,6 +34,17 @@ async function startServer() {
   // Health check endpoint
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', service: 'Zona de Treino API' });
+  });
+
+  // SL Benfica Live Calendar & Scores Endpoint
+  app.get('/api/benfica/matches', async (_req, res) => {
+    try {
+      const data = await getBenficaMatches();
+      res.json(data);
+    } catch (err: any) {
+      console.error('Erro ao obter jogos do Benfica:', err.message);
+      res.status(500).json({ error: 'Erro ao obter jogos', details: err.message });
+    }
   });
 
   // AI Task & Multi-Event Extraction Endpoint

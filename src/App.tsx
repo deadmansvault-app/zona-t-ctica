@@ -13,6 +13,7 @@ import { CheckInAlertBanner } from './components/CheckInAlertBanner';
 import { PhotoViewerModal } from './components/PhotoViewerModal';
 import { CloudAuthModal } from './components/CloudAuthModal';
 import { LoginPage } from './components/LoginPage';
+import { BenficaMatchesView } from './components/BenficaMatchesView';
 import {
   SchoolTask,
   ScheduleItem,
@@ -21,6 +22,8 @@ import {
   CheckInAlert,
   ActivityLog,
 } from './types';
+import { BenficaMatch } from './types/benfica';
+import { fetchBenficaMatches } from './lib/benficaService';
 import { DEFAULT_SETTINGS, INITIAL_SCHEDULE } from './data/timetableData';
 import {
   loadTasks,
@@ -60,7 +63,7 @@ import { playAlertChime, sendBrowserNotification } from './lib/sound';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'calendario' | 'horario' | 'tarefas' | 'pais'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'calendario' | 'horario' | 'tarefas' | 'jogos' | 'pais'>('dashboard');
   const [tasks, setTasks] = useState<SchoolTask[]>([]);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -70,6 +73,7 @@ export default function App() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [currentAlert, setCurrentAlert] = useState<CheckInAlert | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<{ url: string; title: string } | null>(null);
+  const [isBenficaLive, setIsBenficaLive] = useState(false);
 
   // Modals state
   const [checkInTask, setCheckInTask] = useState<SchoolTask | null>(null);
@@ -204,6 +208,50 @@ export default function App() {
 
     return () => unsubscribeAlerts();
   }, []);
+
+  // Check live match status periodically for notification beacon
+  useEffect(() => {
+    let isMounted = true;
+    const checkLive = async () => {
+      try {
+        const res = await fetchBenficaMatches();
+        if (isMounted) {
+          setIsBenficaLive(Boolean(res.liveMatch));
+        }
+      } catch (e) {}
+    };
+    checkLive();
+    const interval = setInterval(checkLive, 30000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleAddBenficaReminder = async (match: BenficaMatch) => {
+    const opp = match.isHome ? match.awayTeam.name : match.homeTeam.name;
+    const newTask: SchoolTask = {
+      id: `slb-reminder-${match.id}`,
+      title: `Dia de Jogo SLB: Benfica vs ${opp}`,
+      subjectCode: 'CD',
+      type: 'outro',
+      description: `Jogo do Benfica às ${match.time} (${match.competition}, ${match.venue}). Organizar e concluir o bloco de estudo e TPCs antes do apito inicial!`,
+      dueDate: match.date,
+      dueTime: match.time,
+      estimatedMinutes: 60,
+      createdAt: new Date().toISOString(),
+    };
+    await saveTask(newTask);
+    setTasks((prev) => {
+      const idx = prev.findIndex((t) => t.id === newTask.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = newTask;
+        return copy;
+      }
+      return [newTask, ...prev];
+    });
+  };
 
   // Auth Handlers
   const handleLoginGoogle = async () => {
@@ -568,6 +616,7 @@ export default function App() {
         user={user}
         alerts={alerts}
         isLoggingIn={isLoggingIn}
+        isBenficaLive={isBenficaLive}
         onLoginGoogle={handleLoginGoogle}
         onLogoutGoogle={handleLogoutGoogle}
         onOpenAiModal={() => setIsAiModalOpen(true)}
@@ -603,6 +652,7 @@ export default function App() {
               setAddTaskInitialDate(undefined);
               setIsAddTaskOpen(true);
             }}
+            onOpenBenficaTab={() => setActiveTab('jogos')}
           />
         )}
 
@@ -617,6 +667,7 @@ export default function App() {
             onEditTask={(task) => setEditingTask(task)}
             onToggleSession={handleToggleSession}
             onOpenAddTaskWithDate={handleOpenAddTaskWithDate}
+            onOpenBenficaTab={() => setActiveTab('jogos')}
           />
         )}
 
@@ -643,6 +694,13 @@ export default function App() {
               setAddTaskInitialDate(undefined);
               setIsAddTaskOpen(true);
             }}
+          />
+        )}
+
+        {/* Benfica Matches, Live Scores & Fixtures */}
+        {activeTab === 'jogos' && (
+          <BenficaMatchesView
+            onAddStudyReminder={handleAddBenficaReminder}
           />
         )}
 

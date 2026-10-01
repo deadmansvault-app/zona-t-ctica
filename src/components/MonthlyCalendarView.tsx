@@ -15,9 +15,11 @@ import {
   CalendarDays,
   Pencil,
   Trash2,
+  MapPin,
 } from 'lucide-react';
 import { SchoolTask, ScheduleItem, AppSettings, TaskType } from '../types';
 import { SUBJECTS, TIME_SLOTS } from '../data/timetableData';
+import { INITIAL_BENFICA_MATCHES } from '../data/benficaMatches';
 import { cleanHandballFromText } from '../lib/studyPlanner';
 import {
   exportAllToIcs,
@@ -33,6 +35,7 @@ interface MonthlyCalendarViewProps {
   onEditTask?: (task: SchoolTask) => void;
   onToggleSession: (taskId: string, sessionId: string) => void;
   onOpenAddTaskWithDate: (dateStr: string) => void;
+  onOpenBenficaTab?: () => void;
 }
 
 export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
@@ -44,6 +47,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   onEditTask,
   onToggleSession,
   onOpenAddTaskWithDate,
+  onOpenBenficaTab,
 }) => {
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -468,6 +472,22 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
 
                   {/* Badges / Chips */}
                   <div className="space-y-1 overflow-hidden flex-1">
+                    {/* Benfica Match Badge */}
+                    {(() => {
+                      const bMatch = INITIAL_BENFICA_MATCHES.find((m) => m.date === cell.dateStr);
+                      if (!bMatch) return null;
+                      const opp = bMatch.isHome ? bMatch.awayTeam.shortName : bMatch.homeTeam.shortName;
+                      return (
+                        <div
+                          className="truncate text-[10px] font-black px-1.5 py-0.5 rounded-md bg-gradient-to-r from-red-800 to-red-950 text-white shadow-2xs flex items-center gap-1 border border-red-500/50"
+                          title={`Jogo do Benfica: ${bMatch.homeTeam.name} vs ${bMatch.awayTeam.name} (${bMatch.time})`}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                          <span className="truncate">⚽ SLB vs {opp}</span>
+                        </div>
+                      );
+                    })()}
+
                     {/* Tasks badges */}
                     {filteredDayTasks.slice(0, 3).map((task) => {
                       const subject = SUBJECTS[task.subjectCode];
@@ -566,6 +586,60 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                 })}
               </h3>
             </div>
+
+            {/* Benfica Match for Selected Date */}
+            {(() => {
+              const selectedBenfica = INITIAL_BENFICA_MATCHES.find((m) => m.date === selectedDateStr);
+              if (!selectedBenfica) return null;
+              return (
+                <div className="bg-gradient-to-r from-red-950 via-slate-900 to-red-900 text-white rounded-2xl p-4 shadow-sm border border-red-700/60 mb-4">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-red-600 px-2.5 py-0.5 rounded-full">
+                      ⚽ Jogo do Benfica • {selectedBenfica.competition}
+                    </span>
+                    {selectedBenfica.broadcast && (
+                      <span className="text-[10px] font-bold text-amber-300 bg-black/40 border border-white/15 px-2 py-0.5 rounded-full">
+                        📺 {selectedBenfica.broadcast}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 my-1">
+                    <div className="flex items-center gap-2">
+                      <img src={selectedBenfica.homeTeam.badge} alt="" className="w-7 h-7 object-contain" />
+                      <span className="font-extrabold text-sm">{selectedBenfica.homeTeam.name}</span>
+                    </div>
+
+                    <div className="font-black text-sm px-3 py-1 bg-black/50 rounded-xl border border-white/15">
+                      {selectedBenfica.status === 'FINISHED'
+                        ? `${selectedBenfica.homeScore} - ${selectedBenfica.awayScore}`
+                        : selectedBenfica.time}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-sm">{selectedBenfica.awayTeam.name}</span>
+                      <img src={selectedBenfica.awayTeam.badge} alt="" className="w-7 h-7 object-contain" />
+                    </div>
+                  </div>
+
+                  <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-red-200">
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-red-400" />
+                      {selectedBenfica.venue}
+                    </span>
+                    {onOpenBenficaTab && (
+                      <button
+                        type="button"
+                        onClick={onOpenBenficaTab}
+                        className="text-amber-400 hover:text-amber-300 font-bold underline"
+                      >
+                        Ver Detalhes do Jogo
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Tasks on this Day */}
             <div className="space-y-2">

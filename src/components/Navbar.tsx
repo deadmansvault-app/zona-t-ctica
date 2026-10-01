@@ -14,6 +14,7 @@ import {
   MessageCircle,
   Image as ImageIcon,
   RefreshCw,
+  Trophy,
 } from 'lucide-react';
 import { CheckInAlert, AppSettings } from '../types';
 import { SUBJECTS } from '../data/timetableData';
@@ -21,13 +22,14 @@ import { requestBrowserNotificationPermission } from '../lib/sound';
 import { AppUser } from '../lib/firebase';
 
 interface NavbarProps {
-  activeTab: 'dashboard' | 'calendario' | 'horario' | 'tarefas' | 'pais';
-  setActiveTab: (tab: 'dashboard' | 'calendario' | 'horario' | 'tarefas' | 'pais') => void;
+  activeTab: 'dashboard' | 'calendario' | 'horario' | 'tarefas' | 'jogos' | 'pais';
+  setActiveTab: (tab: 'dashboard' | 'calendario' | 'horario' | 'tarefas' | 'jogos' | 'pais') => void;
   pendingCount: number;
   user: AppUser | null;
   settings?: AppSettings;
   alerts?: CheckInAlert[];
   isLoggingIn?: boolean;
+  isBenficaLive?: boolean;
   onLoginGoogle: () => void;
   onLogoutGoogle: () => void;
   onOpenAiModal: () => void;
@@ -44,6 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   settings,
   alerts = [],
   isLoggingIn = false,
+  isBenficaLive = false,
   onLoginGoogle,
   onLogoutGoogle,
   onOpenAiModal,
@@ -414,6 +417,25 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <BookOpen className="w-4 h-4" />
             <span>Testes & Trabalhos</span>
+          </button>
+
+          <button
+            id="tab-jogos"
+            onClick={() => setActiveTab('jogos')}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
+              activeTab === 'jogos'
+                ? 'bg-red-600 text-white shadow-xs shadow-red-200'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Trophy className="w-4 h-4 text-amber-400" />
+            <span>Jogos SLB</span>
+            {isBenficaLive && (
+              <span className="flex items-center gap-1 text-[10px] font-black bg-emerald-500 text-white px-1.5 py-0.2 rounded-full animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                AO VIVO
+              </span>
+            )}
           </button>
 
           <button
