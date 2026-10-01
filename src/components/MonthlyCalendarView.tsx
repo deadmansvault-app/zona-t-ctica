@@ -20,6 +20,8 @@ import {
 import { SchoolTask, ScheduleItem, AppSettings, TaskType } from '../types';
 import { SUBJECTS, TIME_SLOTS } from '../data/timetableData';
 import { INITIAL_BENFICA_MATCHES } from '../data/benficaMatches';
+import { BenficaMatch } from '../types/benfica';
+import { fetchBenficaMatches } from '../lib/benficaService';
 import { cleanHandballFromText } from '../lib/studyPlanner';
 import {
   exportAllToIcs,
@@ -57,6 +59,18 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   );
   const [filterType, setFilterType] = useState<'all' | 'teste' | 'tpc' | 'trabalho'>('all');
   const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [benficaMatches, setBenficaMatches] = useState<BenficaMatch[]>(INITIAL_BENFICA_MATCHES);
+
+  // Sync dynamic Benfica matches and date changes from live feed
+  React.useEffect(() => {
+    fetchBenficaMatches()
+      .then((res) => {
+        if (res.allMatches && res.allMatches.length > 0) {
+          setBenficaMatches(res.allMatches);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Month navigation
   const handlePrevMonth = () => {
@@ -474,16 +488,21 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                   <div className="space-y-1 overflow-hidden flex-1">
                     {/* Benfica Match Badge */}
                     {(() => {
-                      const bMatch = INITIAL_BENFICA_MATCHES.find((m) => m.date === cell.dateStr);
+                      const bMatch = benficaMatches.find((m) => m.date === cell.dateStr);
                       if (!bMatch) return null;
                       const opp = bMatch.isHome ? bMatch.awayTeam.shortName : bMatch.homeTeam.shortName;
                       return (
                         <div
                           className="truncate text-[10px] font-black px-1.5 py-0.5 rounded-md bg-gradient-to-r from-red-800 to-red-950 text-white shadow-2xs flex items-center gap-1 border border-red-500/50"
-                          title={`Jogo do Benfica: ${bMatch.homeTeam.name} vs ${bMatch.awayTeam.name} (${bMatch.time})`}
+                          title={`Jogo do Benfica: ${bMatch.homeTeam.name} vs ${bMatch.awayTeam.name} (${bMatch.time})${bMatch.status === 'POSTPONED' ? ' - Adiado' : ''}`}
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                           <span className="truncate">⚽ SLB vs {opp}</span>
+                          {bMatch.status === 'POSTPONED' && (
+                            <span className="text-[9px] bg-amber-400 text-slate-900 px-1 rounded font-black shrink-0">
+                              Adiado
+                            </span>
+                          )}
                         </div>
                       );
                     })()}
@@ -589,7 +608,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
 
             {/* Benfica Match for Selected Date */}
             {(() => {
-              const selectedBenfica = INITIAL_BENFICA_MATCHES.find((m) => m.date === selectedDateStr);
+              const selectedBenfica = benficaMatches.find((m) => m.date === selectedDateStr);
               if (!selectedBenfica) return null;
               return (
                 <div className="bg-gradient-to-r from-red-950 via-slate-900 to-red-900 text-white rounded-2xl p-4 shadow-sm border border-red-700/60 mb-4">
@@ -597,6 +616,11 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                     <span className="text-[10px] font-black uppercase tracking-wider bg-red-600 px-2.5 py-0.5 rounded-full">
                       ⚽ Jogo do Benfica • {selectedBenfica.competition}
                     </span>
+                    {selectedBenfica.status === 'POSTPONED' && (
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-amber-400 text-slate-900 px-2 py-0.5 rounded-full">
+                        Adiado / A Reagendar
+                      </span>
+                    )}
                     {selectedBenfica.broadcast && (
                       <span className="text-[10px] font-bold text-amber-300 bg-black/40 border border-white/15 px-2 py-0.5 rounded-full">
                         📺 {selectedBenfica.broadcast}

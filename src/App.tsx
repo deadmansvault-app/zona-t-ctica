@@ -708,6 +708,7 @@ export default function App() {
           <ParentHistoryView
             tasks={tasks}
             settings={settings}
+            schedule={schedule}
             user={user}
             logs={logs}
             isLoggingIn={isLoggingIn}

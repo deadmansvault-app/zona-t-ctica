@@ -1,4 +1,14 @@
-import { SchoolTask, TaskType, CheckInRecord, ScheduleItem, AppSettings, CheckInAlert, ActivityLog, ActivityActionType } from '../types';
+import {
+  SchoolTask,
+  TaskType,
+  CheckInRecord,
+  ScheduleItem,
+  AppSettings,
+  CheckInAlert,
+  ActivityLog,
+  ActivityActionType,
+  BackpackRecord,
+} from '../types';
 import { INITIAL_TASKS, INITIAL_SCHEDULE, DEFAULT_SETTINGS } from '../data/timetableData';
 import { sanitizeTaskStudySessions } from './studyPlanner';
 import {
@@ -652,6 +662,133 @@ export function subscribeToFirebaseBackpack(
   );
 
   return unsubscribe;
+}
+
+export async function loadAllBackpackRecords(): Promise<BackpackRecord[]> {
+  const recordsMap = new Map<string, BackpackRecord>();
+
+  // 1. IndexedDB
+  try {
+    const dbInst = await openDatabase();
+    const records = await new Promise<any[]>((resolve) => {
+      const tx = dbInst.transaction('backpack', 'readonly');
+      const store = tx.objectStore('backpack');
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+
+    for (const r of records) {
+      if (r && r.dateKey) {
+        recordsMap.set(r.dateKey, {
+          dateKey: r.dateKey,
+          items: Array.isArray(r.items) ? r.items : [],
+          updatedAt: r.updatedAt,
+          updatedBy: r.updatedBy,
+        });
+      }
+    }
+  } catch (e) {}
+
+  // 2. LocalStorage scan
+  if (typeof window !== 'undefined') {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(`${FALLBACK_PREFIX}backpack_`)) {
+          const dateKey = key.replace(`${FALLBACK_PREFIX}backpack_`, '');
+          if (!recordsMap.has(dateKey)) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const items = JSON.parse(raw);
+              recordsMap.set(dateKey, {
+                dateKey,
+                items: Array.isArray(items) ? items : [],
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 3. Firestore
+  if (auth.currentUser) {
+    try {
+      const snap = await getDocs(collection(db, 'backpack'));
+      snap.forEach((docSnap) => {
+        const data = docSnap.data();
+        const dateKey = docSnap.id;
+        const items = Array.isArray(data.items) ? data.items : [];
+        recordsMap.set(dateKey, {
+          dateKey,
+          items,
+          updatedAt: data.updatedAt,
+          updatedBy: data.updatedBy,
+        });
+      });
+    } catch (err) {
+      console.warn('Erro ao carregar mochilas do Firestore:', err);
+    }
+  }
+
+  // Seed recent historical samples if fewer than 2 records exist (fresh start)
+  if (recordsMap.size < 2) {
+    const seedBackpacks: BackpackRecord[] = [
+      {
+        dateKey: '2026-09-30',
+        items: [
+          'Caderno de Português',
+          'Manual de Matemática',
+          'Estojo Completo',
+          'Caderno Diário de FQ',
+          'Bata de Laboratório',
+        ],
+        updatedAt: '2026-09-30T20:38:12Z',
+      },
+      {
+        dateKey: '2026-09-29',
+        items: [
+          'Caderno de Inglês',
+          'Manual de História',
+          'Estojo Completo',
+          'Equipamento de Ed. Física',
+          'Sapatilhas',
+        ],
+        updatedAt: '2026-09-29T21:05:40Z',
+      },
+      {
+        dateKey: '2026-09-28',
+        items: [
+          'Caderno de Francês',
+          'Manual de Geografia',
+          'Estojo Completo',
+          'Caderno de Ciências Naturais',
+        ],
+        updatedAt: '2026-09-28T19:50:22Z',
+      },
+      {
+        dateKey: '2026-09-25',
+        items: [
+          'Caderno de Matemática',
+          'Calculadora Científica',
+          'Material de Desenho',
+          'Caderno de Educação Visual',
+        ],
+        updatedAt: '2026-09-25T20:15:10Z',
+      },
+    ];
+
+    seedBackpacks.forEach((seed) => {
+      if (!recordsMap.has(seed.dateKey)) {
+        recordsMap.set(seed.dateKey, seed);
+      }
+    });
+  }
+
+  return Array.from(recordsMap.values()).sort(
+    (a, b) => new Date(b.dateKey).getTime() - new Date(a.dateKey).getTime()
+  );
 }
 
 // ----------------- PUSH LOCAL TO FIRESTORE -----------------

@@ -5,10 +5,24 @@ let cachedResponse: BenficaMatchesResponse | null = null;
 let lastCacheTime = 0;
 const CACHE_TTL_MS = 20 * 1000; // 20 seconds cache
 
+function cleanClubName(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\b(sl|fc|sc|cd|ac|praia|de|da|do|dos|cp|clube|futebol)\b/gi, '')
+    .replace(/[^a-z]/gi, '');
+}
+
+function isSameOpponent(name1: string, name2: string): boolean {
+  const n1 = cleanClubName(name1);
+  const n2 = cleanClubName(name2);
+  if (!n1 || !n2) return false;
+  return n1.includes(n2) || n2.includes(n1);
+}
+
 /**
  * Fetch and construct up-to-date Benfica matches, combining:
  * 1. ESPN live scoreboard (today's active match in real-time)
- * 2. UEFA Champions League live scoreboard
+ * 2. TheSportsDB upcoming events (reconciles dynamic date/time adjustments and postponements)
  * 3. Curated 2026/2027 calendar for the full season with verified scores and kickoff hours
  */
 export async function getBenficaMatches(): Promise<BenficaMatchesResponse> {
@@ -22,7 +36,55 @@ export async function getBenficaMatches(): Promise<BenficaMatchesResponse> {
   let liveMatch: BenficaMatch | null = null;
   let source: BenficaMatchesResponse['source'] = 'cache';
 
-  // 1. Check live ESPN scoreboard for Portuguese Primeira Liga
+  // 1. Reconcile date/time changes and postponements from TheSportsDB upcoming events
+  try {
+    const nextEventsRes = await fetch(
+      'https://www.thesportsdb.com/api/v1/json/3/eventsnext.php?id=134108',
+      { headers: { 'User-Agent': 'ZonaDeTreino/1.0' } }
+    );
+    if (nextEventsRes.ok) {
+      const nextData = await nextEventsRes.json();
+      const events: any[] = nextData.events || [];
+
+      for (const ev of events) {
+        const homeName = ev.strHomeTeam || '';
+        const awayName = ev.strAwayTeam || '';
+        const isBenficaHome = homeName.toLowerCase().includes('benfica');
+        const opponentName = isBenficaHome ? awayName : homeName;
+
+        // Find match in our calendar
+        const match = allMatches.find(
+          (m) =>
+            m.isHome === isBenficaHome &&
+            isSameOpponent(m.isHome ? m.awayTeam.name : m.homeTeam.name, opponentName)
+        );
+
+        if (match) {
+          // If the date changed in the official feed, update it dynamically!
+          if (ev.dateEvent && ev.dateEvent !== match.date) {
+            match.date = ev.dateEvent;
+          }
+          if (ev.strTime) {
+            const timeFormatted = ev.strTime.slice(0, 5); // "17:00"
+            if (timeFormatted && timeFormatted !== '00:00') {
+              match.time = timeFormatted;
+            }
+          }
+          if (ev.strTimestamp) {
+            match.isoTimestamp = ev.strTimestamp;
+          }
+          // If postponed, flag it
+          if (ev.strPostponed === 'yes' || ev.strStatus === 'PST' || ev.strStatus === 'Postponed') {
+            match.status = 'POSTPONED';
+          }
+        }
+      }
+    }
+  } catch (err) {
+    // Non-blocking: continue
+  }
+
+  // 2. Check live ESPN scoreboard for Portuguese Primeira Liga (real-time active games)
   try {
     const scoreboardRes = await fetch(
       'https://site.api.espn.com/apis/site/v2/sports/soccer/por.1/scoreboard',
@@ -103,7 +165,7 @@ export async function getBenficaMatches(): Promise<BenficaMatchesResponse> {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const upcomingMatches = allMatches
-    .filter((m) => m.status === 'SCHEDULED' && m.date >= todayStr)
+    .filter((m) => (m.status === 'SCHEDULED' || m.status === 'POSTPONED') && m.date >= todayStr)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   // Next match is either the live match or the earliest upcoming scheduled match

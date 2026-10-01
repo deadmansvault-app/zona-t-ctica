@@ -62,6 +62,15 @@ export interface SubjectInfo {
   backpackItems: string[];
 }
 
+export interface BackpackRecord {
+  dateKey: string; // YYYY-MM-DD
+  items: string[];
+  updatedAt?: string;
+  updatedBy?: string;
+  totalRequired?: number;
+  isComplete?: boolean;
+}
+
 export interface TimetableSlot {
   timeIndex: number;
   timeRange: string; // "08:15-09:05"

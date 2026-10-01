@@ -25,10 +25,12 @@ import {
   School,
   Plus,
   Trash2,
+  Briefcase,
 } from 'lucide-react';
-import { SchoolTask, CheckInRecord, AppSettings, ActivityLog } from '../types';
+import { SchoolTask, CheckInRecord, AppSettings, ActivityLog, ScheduleItem } from '../types';
 import { SUBJECTS } from '../data/timetableData';
 import { ParentAnalyticsCharts } from './ParentAnalyticsCharts';
+import { ParentBackpackHistoryView } from './ParentBackpackHistoryView';
 import { BarChart3 } from 'lucide-react';
 import { AppUser } from '../lib/firebase';
 
@@ -36,6 +38,7 @@ interface ParentHistoryViewProps {
   tasks: SchoolTask[];
   settings: AppSettings;
   user: AppUser | null;
+  schedule?: ScheduleItem[];
   logs?: ActivityLog[];
   isLoggingIn?: boolean;
   onLoginGoogle: () => void;
@@ -52,6 +55,7 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
   tasks,
   settings,
   user,
+  schedule = [],
   logs = [],
   isLoggingIn = false,
   onLoginGoogle,
@@ -63,7 +67,7 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
   onImportData,
   onOpenCloudInfo,
 }) => {
-  const [activeParentTab, setActiveParentTab] = useState<'analytics' | 'checkins' | 'settings'>('analytics');
+  const [activeParentTab, setActiveParentTab] = useState<'analytics' | 'mochilas' | 'checkins' | 'settings'>('analytics');
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
@@ -302,6 +306,18 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
             </button>
             <button
               type="button"
+              onClick={() => setActiveParentTab('mochilas')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                activeParentTab === 'mochilas'
+                  ? 'bg-white text-red-600 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              }`}
+            >
+              <Briefcase className="w-4 h-4" />
+              <span>Mochila Diária</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveParentTab('checkins')}
               className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
                 activeParentTab === 'checkins'
@@ -332,6 +348,15 @@ export const ParentHistoryView: React.FC<ParentHistoryViewProps> = ({
               tasks={tasks}
               logs={logs}
               studentName={settings.studentName || 'Francisco'}
+            />
+          )}
+
+          {/* TAB 2: Daily Backpack Preparation History */}
+          {activeParentTab === 'mochilas' && (
+            <ParentBackpackHistoryView
+              schedule={schedule}
+              studentName={settings.studentName || 'Francisco'}
+              logs={logs}
             />
           )}
 
